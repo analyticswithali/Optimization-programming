@@ -1,4 +1,7 @@
-## Welcome to GitHub Pages
+# Optimization-programming
+This analysis has examples of constrained optimization problems, including linear, network, dynamic, integer, and nonlinear programming, decision trees, queueing theory, and Markov decision processes. 
+
+
 
 You can use the [editor on GitHub](https://github.com/analyticswithali/Optimization-programming/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
