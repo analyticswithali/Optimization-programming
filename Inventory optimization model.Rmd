@@ -1,17 +1,21 @@
 ---
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_depth: '4'
+    df_print: paged
 ---
 
-#### **To:**   Seymore Butts
+##### **To:**   Seymore Butts
   
-#### **From:** Afsar Ali  
+##### **From:** Afsar Ali  
   
-#### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
+##### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
   
-#### **RE:** Analysis of the Proposals to reduce average level of in-process inventory 
+##### **RE:** Analysis of the Proposals to reduce average level of in-process inventory 
 
 ***
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 
 # Title: Artie's Dream
 # Purpose: Final Project 
@@ -39,7 +43,7 @@ library(formattable)
 How can we reduce the average number of poster sheets waiting to complete inspection? I was tasked with analyzing and producing solutions to reduce the backlog by taking into account the cost associated with each task and cost of in-process inventory. According to my findings, we should only use 8 printing press, increase the print time by 15 mins and hire an additional inspector. This will reduce our **Total cost by $50.63 per hour** from current the total cost of $203.14 per hour to $152.51 per hour and optimizes our overall operation. With the task of analyzing the two initial proposals we discussed, I was able to create a third solution that maximizes the poster sheet flow while minimizing our cost. 
 
 
-```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Current Status:
 
 # Evaluating the status quo print reproductions of the paintings and photographs
@@ -102,7 +106,7 @@ Table 1 breaks down our status quo. Our current **total cost is $203.14 per hour
 
 *Table 1: Currently the Total Cost is $203.14 per hour *
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 now <- as.data.frame(cbind(p4_p[3,],#using 10 presses and 1 inspector
                            p4_i[1,])) #using 10 presses and 1 inspector
 #L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
@@ -128,7 +132,7 @@ now %>%
   column_spec(4, bold = T) 
 ```
 
-```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 ##Proposal 4: Take slightly longer to make the prints (which would increase their average time to make a print to 1.2 hours), so that the inspector can keep up with his output better. This also would reduce the  cost of the power for running each press from $7.00 to $6.50 per hour. (By contrast, decreasing the time would increase this cost to $7.50 per hour while decreasing the average time to make a print to 0.8 hour.):
 
 # Evaluating the status quo print reproductions of the paintings and photographs
@@ -191,7 +195,7 @@ If we were to take slightly longer time to make the prints, so that the inspecto
 
 *Table 2: Decreasing print time by 10 mins would increase Total Cost by $23.24 per hour *
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 p4a <- as.data.frame(cbind(p4_p[2,],#using 10 presses and 1 inspector
                            p4_i[1,])) #using 10 presses and 1 inspector
 #L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
@@ -221,7 +225,7 @@ now1 %>%
   add_header_above(c(" ", "Current" = 3, "Proposed: Decreasing print time" = 3))
 ```
 
-```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 ##Proposal 4: Take slightly longer to make the prints (which would increase their average time to make a print to 1.2 hours), so that the inspector can keep up with his output better. This also would reduce the  cost of the power for running each press from $7.00 to $6.50 per hour. (By contrast, decreasing the time would increase this cost to $7.50 per hour while decreasing the average time to make a print to 0.8 hour.):
 
 # Evaluating the status quo print reproductions of the paintings and photographs
@@ -284,7 +288,7 @@ By contrast, if we were increasing the print time, it would increase the cost of
 
 *Table 3: Increasing print time by 15 mins would decrease the Total Cost by $9.63 per hour *
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 p4b <- as.data.frame(cbind(p4_p[5,],#using 10 presses and 1 inspector
                            p4_i[1,])) #using 10 presses and 1 inspector
 #L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
@@ -314,7 +318,7 @@ now2 %>%
   add_header_above(c(" ", "Current" = 3, "Proposed: Increasing print time" = 3))
 ```    
 
-```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Proposal 5: Substitute a more experienced inspector for this task. She is somewhat faster at 7 minutes per poster, so she should keep up better. However, this inspector is in a job classification that calls for a total compensation (including benefits) of $19 per hour, whereas the current inspector is in a lower job classification where the compensation is $17 per hour:
 
 # Evaluating the status quo print reproductions of the paintings and photographs
@@ -377,7 +381,7 @@ If we were to substitute a more experienced inspector, the **total cost would de
 
 *Table 4: Experienced inspector would decrease the Total Cost by $18.36 per hour *
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 p5a <- as.data.frame(cbind(p4_p[3,],#using 10 presses and 1 inspector
                            p4_i[1,])) #using 10 presses and 1 inspector
 #L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
@@ -409,7 +413,7 @@ now3 %>%
   add_header_above(c(" ", "Current" = 3, "Proposed: Increasing print time" = 3, "Proposed: Experienced inspector" = 3))
 ```    
 
-```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # My Proposal:
 
 # Evaluating the status quo print reproductions of the paintings and photographs
@@ -472,7 +476,7 @@ The recommended proposal is a combination of both of the initial proposal. In Ta
 
 *Table 5: 2 Inspector, 8 Presses at increased rate would decrease the Total Cost by $50.63 per hour*
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 
 p6 <- as.data.frame(cbind(p4_p[3,],#using 8 presses and 2 inspector
                            p4_i[2,])) #using 8 presses and 1 inspector

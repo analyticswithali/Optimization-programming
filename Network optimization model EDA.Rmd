@@ -1,5 +1,5 @@
 ---
-title: "Ali_BUAN Midterm Project"
+title: "Network optimization Project"
 author: "Afsar Ali"
 date: '`r format(Sys.time(), "%B %d, %Y")`'
 output:
@@ -9,7 +9,7 @@ output:
 ---
 
 # Objective
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # Course: BUAN 5260
 # Title: Week 4-Network optimization
 # Purpose: USE IFRC Information information to model scenarios 
@@ -18,7 +18,7 @@ output:
 
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # Clear packages 
 if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(
   paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
@@ -39,7 +39,7 @@ set.seed(123)
 ```
 #Loading and cleaning the data
 
-```{r, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #load Data 
 ifrc <- read.csv("5260_S18_Aiding_Africa_Data.csv", skip = 1)
 #Naming and Creating each table
@@ -80,7 +80,7 @@ edges$ID <- paste(edges$From, edges$To, sep = ' > ')
 
 #1 Netowrk Map
 - Make sense all the Air Routes are the Fastest 
-```{r, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 net <- graph_from_data_frame(d=edges, vertices=nodes, directed=T)
 
 net$layout <- matrix(c(-800, -800,  
@@ -123,7 +123,7 @@ plot(net, edge.arrow.size=.3, edge.label = round(E(net)$Time, 2),
 +Jacksonville, FL > Niamey, Niger       = 22.87 
 
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Create Table for shortest time
 distMatrix <- shortest.paths(net, v=V(net), to=V(net))
 
@@ -152,7 +152,7 @@ plot(shortMatrix, edge.arrow.size=.2, edge.label = round(E(net)$Time, 2))
 #3 - 2nd Plan considering cost and constraints 
 
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Part 3 - Min Cost
 # Set up model
 min_cost <- make.lp(0, 30)
@@ -251,7 +251,7 @@ tm1
 
 ##Graph the Min Cost Solution
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 
 # Include solution in edges dataframe
 edges$flow <- get.variables(min_cost)
@@ -292,7 +292,7 @@ plot(g, edge.width = 15*E(g)$Mincost/max(E(g)$Mincost),
 
 #4 - Last Plan Max Flow with many constraints 
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Maximum Flow
 
 # Set up model
@@ -406,7 +406,7 @@ tm3
 
 ##Graph Max Cost Solution
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # Include solution in edges dataframe
 edges$Mflow <- get.variables(max_flow)[3:32]
 edges$TotalAid <- edges$Mflow * edges$Capacity
@@ -452,7 +452,7 @@ E(g1)$TotalAid
 
 #4 - Last Plan Testing Max Flow by relaxing some constraints to congos
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Maximum Flow
 
 # Set up model
@@ -567,7 +567,7 @@ tm3
 
 ##Graph Max Cost Solution
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # Include solution in edges dataframe
 edges$Mflow <- get.variables(max_flow)[3:32]
 edges$TotalAid <- edges$Mflow * edges$Capacity
@@ -615,7 +615,7 @@ E(g1)$TotalAid
 
 ##Fuction to run Matrix
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 
 
 
@@ -744,7 +744,7 @@ write.csv(CM, file = "MyData.csv")
 
 #Using I graph to calculate min and max (didnt work)
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Addmore attributes to the Graph
 
 E(net)$Group <- E(net)$Type 

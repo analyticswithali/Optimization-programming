@@ -1,19 +1,21 @@
 ---
 output:
   html_document:
+    toc: true
+    toc_depth: '4'
     df_print: paged
 ---
 
-#### **To:**  Seattle Museum of Modern Art: Board of directors  
+##### **To:**  Seattle Museum of Modern Art: Board of directors  
   
-#### **From:** Afsar Ali  
+##### **From:** Afsar Ali  
   
-#### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
+##### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
   
-#### **RE:** Analysis of 3 Proposal: Artie's Dream 
+##### **RE:** Analysis of 3 Proposal: Artie's Dream 
 
 ***
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 
 # Title: Artie's Dream
 # Purpose: Final Project 
@@ -35,7 +37,7 @@ library(kableExtra)
 library(formattable)
 ```
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 
 # Import Data 
 data <- read.csv("5260_S18_Arties_Dream.csv", header = TRUE)
@@ -46,7 +48,7 @@ data <- read.csv("5260_S18_Arties_Dream.csv", header = TRUE)
 Artie Fophartie has recently caught our attention with his willingness to fund an entire exhibit and generously donating $1 million to the museum from his lottery ticket winnings. Since the exhibit pieces would remain on display for two months, a thorough analysis is needed to calculate the cost and determine which art pieces should be displayed. This analysis is based on the 34 art pieces that Artie selected from the modern art community. Celeste McKenzie and Artie made specific requirements for the exhibit and based on these requirements there are three proposals for you to review. The first proposal reflects the budget of $4 million set by Artie. The second proposal reflects Celeste's decision to include at least 20 art pieces to ensure that the exhibit draws the attention of the public. The third proposal reflects cost uncertainty.
 
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # This model has choice variables that are binary
 p1 <- make.lp(0, 35)
 lp.control(p1, sense = "max")
@@ -130,7 +132,7 @@ With $4 million to fund the exhibit and the specific requirements from Artie and
 
 *Table 1: List of 15 art pieces displayed without exceeding the budget*
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Stracture Table
 data$Solution <- get.variables(p1)[1:34]
 data1 <- subset(data, Solution == 1)
@@ -149,7 +151,7 @@ kable("html", row.names = TRUE) %>%
 ```
 
 
-```{r include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 
 # This model has choice variables that are binary
 p1 <- make.lp(0, 35)
@@ -233,7 +235,7 @@ In proposal 2, we are considering at least 20 pieces to ensure that the exhibit 
 
 *Table 2: Minimum cost is $5.45 Million for displaying at least 20 art pieces*
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 #Stracture Table
 data$Solution2 <- get.variables(p1)[1:34]
 data2 <- subset(data, Solution2 == 1)
@@ -252,7 +254,7 @@ data2 %>%
 ```
 
 
-```{r include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # Number of simulations
 set.seed(1234)
 n <- 1000
@@ -348,7 +350,7 @@ We know from our previous experiences, cost associated with each art piece varie
 
 
 *Table 3: Impact on Proposal 2 with cost uncertainty ranges from $4.9 Million to $5.9 Million*
-```{r echo=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=TRUE}
 # Make table of output
 out_rp3 <- round(rbind(apply(rp3, 2, mean), apply(rp3, 2, sd), 
                       apply(rp3, 2, max), apply(rp3, 2, min)), 2)
