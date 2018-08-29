@@ -1,0 +1,371 @@
+---
+output:
+  html_document:
+    df_print: paged
+---
+
+#### **To:**  Seattle Museum of Modern Art: Board of directors  
+  
+#### **From:** Afsar Ali  
+  
+#### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
+  
+#### **RE:** Analysis of 3 Proposal: Artie's Dream 
+
+***
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Title: Artie's Dream
+# Purpose: Final Project 
+# Date: May 31, 2018
+# Author: Afsar Ali
+
+# Clear packages 
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(
+  paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
+  detach, character.only = TRUE, unload = TRUE)
+
+# Clear environment
+rm(list = ls(all = TRUE)) 
+
+library(tidyverse)
+library(lpSolveAPI)
+library(knitr) # For making a nice table, there are options to make nicer tables
+library(kableExtra)
+library(formattable)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Import Data 
+data <- read.csv("5260_S18_Arties_Dream.csv", header = TRUE)
+```
+
+### Executive Summary
+
+Artie Fophartie has recently caught our attention with his willingness to fund an entire exhibit and generously donating $1 million to the museum from his lottery ticket winnings. Since the exhibit pieces would remain on display for two months, a thorough analysis is needed to calculate the cost and determine which art pieces should be displayed. This analysis is based on the 34 art pieces that Artie selected from the modern art community. Celeste McKenzie and Artie made specific requirements for the exhibit and based on these requirements there are three proposals for you to review. The first proposal reflects the budget of $4 million set by Artie. The second proposal reflects Celeste's decision to include at least 20 art pieces to ensure that the exhibit draws the attention of the public. The third proposal reflects cost uncertainty.
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# This model has choice variables that are binary
+p1 <- make.lp(0, 35)
+lp.control(p1, sense = "max")
+
+# Set penatlty variable to force either-or of constraint
+M <- 10000
+
+obj_fn <- c(rep(1, 34), 0)
+set.objfn(p1, obj_fn)
+colnames(p1) <- c(data$Description , "M_penatlty")
+# Add constraints
+add.constraint(p1, c(data$Price...1000., 0), "<=", 4000) #cost 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0, 0), "=", 1) #include only one collage 4
+add.constraint(p1, c(1,	1,	1,	-1,	-1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, -M), "<=", 0) # He therefore wants at least one wire mesh sculpture displayed if a computer-generated drawing is displayed
+add.constraint(p1, c(-1,	-1,	-1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, M), "<=", 0 + M) #he wants at least one computer-generated drawing displayed if a wire mesh sculpture is displayed
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1)   #at least one photo-realistic painting 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one cubist painting 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one expressionist painting 1
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1, 0), ">=", 1) #at least one watercolor painting 6
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one oil painting 5
+add.constraint(p1, c(2,	2,	2,	2,	2,	2,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	2,	2,	-1,	-1,	-1,	2,	2,	-1,	-1,-1, -1, 0), ">=", 0) #the number of paintings 18 to be no greater than twice the number of other art forms 16 | 2 painting is less then twice the # of other art 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1, 0), "=", 4) #Artie wants all his own paintings included in the exhibit since he is sponsoring the exhibit 4
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "=", 2) #he wants both of Helen Row paintings displayed
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #He therefore decides to display as many pieces from David Lyman 3 as from Ziggy Stardust and to display at least one piece from each of them
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) ##He therefore decides to display as many pieces from David Lyman as from Ziggy Stardust 2 and to display at least one piece from each of them
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0, -1,	-1,	-1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "=", 0)##He therefore decides to display as many pieces from David Lyman as from Ziggy Stardust 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0, 0), "<=", 1) #Artie will therefore only accept one display piece from Rick, if any at all
+add.constraint(p1, c(-1,-1,	-1,	2,	2,	2,	2,	-1,	-1,	2,	2,-1,	-1,	-1,	-1,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1,	-1,	-1,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1, 0), ">=", 0)#To support female artists, she decides to include at least one piece from a female artist for every two pieces included from a male art
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #To advance environmentalism, she decides to include either one or both of the pieces "Aging Earth" and "Wasted Resources." 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) # To advance Native American rights, she decides to include at least one piece by Bear Canton
+add.constraint(p1, c(0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) # To advance science, she decidesto include at least one of the following pieces: "Beyond," "Who Has Control," "Where are we now?" and "Pioneers."
+add.constraint(p1, c(1,	1,	1,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "<=", 4) #The museum only has enough floor space for four sculptures
+add.constraint(p1, c(0,	0,	0,	1,	1,	1,	1,	0,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1, 0), "<=", 20) #The museum only has enough floor space for around 20 paintings, collages, and drawings
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, -1,	0,	0,	0,	0, 0), ">=", 0) #if "Narcissism" is displayed Reflection" should also be displayed
+
+# Set the type (real, integer or binary) of each decision variable
+set.type(p1, 1, "binary")
+set.type(p1, 2, "binary")
+set.type(p1, 3, "binary")
+set.type(p1, 4, "binary")
+set.type(p1, 5, "binary")
+set.type(p1, 6, "binary")
+set.type(p1, 7, "binary")
+set.type(p1, 8, "binary")
+set.type(p1, 9, "binary")
+set.type(p1, 10, "binary")
+set.type(p1, 11, "binary")
+set.type(p1, 12, "binary")
+set.type(p1, 13, "binary")
+set.type(p1, 14, "binary")
+set.type(p1, 15, "binary")
+set.type(p1, 16, "binary")
+set.type(p1, 17, "binary")
+set.type(p1, 18, "binary")
+set.type(p1, 19, "binary")
+set.type(p1, 20, "binary")
+set.type(p1, 21, "binary")
+set.type(p1, 22, "binary")
+set.type(p1, 23, "binary")
+set.type(p1, 24, "binary")
+set.type(p1, 25, "binary")
+set.type(p1, 26, "binary")
+set.type(p1, 27, "binary")
+set.type(p1, 28, "binary")
+set.type(p1, 29, "binary")
+set.type(p1, 30, "binary")
+set.type(p1, 31, "binary")
+set.type(p1, 32, "binary")
+set.type(p1, 33, "binary")
+set.type(p1, 34, "binary")
+set.type(p1, 35, "binary")
+
+# Solve the model, if this return 0 an optimal solution is found
+solve(p1)
+```
+
+
+#### Proposal 1 - Maximum number of art pieces displayed without exceeding the budget
+
+With $4 million to fund the exhibit and the specific requirements from Artie and Celeste, my analysis shows that 15 is the maximum number of art pieces that can be displayed in the exhibit without exceeding the budget. Table 1 shows the **15 art pieces** that should be displayed. You will notice that the total funds that will be used in this proposal is $3.95 million.
+
+*Table 1: List of 15 art pieces displayed without exceeding the budget*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Stracture Table
+data$Solution <- get.variables(p1)[1:34]
+data1 <- subset(data, Solution == 1)
+data1 <- data1[c(2:4, 6)]
+row.names(data1) <- 1:nrow(data1)
+colnames(data1)[4]<- "Price ($1000)"
+data1["Total", ] <- colSums(data1[4])
+#Visualize Data
+options(knitr.kable.NA = '')
+data1 %>%
+kable("html", row.names = TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(data1), bold = T, color = "white", background = "green") %>%
+  column_spec(1, bold = T) 
+
+```
+
+
+```{r include=FALSE}
+
+# This model has choice variables that are binary
+p1 <- make.lp(0, 35)
+lp.control(p1, sense = "min")
+
+# Set penatlty variable to force either-or of constraint
+M <- 10000
+
+obj_fn <- c(data$Price...1000., 0)
+set.objfn(p1, obj_fn)
+colnames(p1) <- c(data$Description , "M_penatlty")
+# Add constraints
+add.constraint(p1, c(rep(1, 34), 0), ">=", 20) #must include at least 20 pieces
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0, 0), "=", 1) #include only one collage 4
+add.constraint(p1, c(1,	1,	1,	-1,	-1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,-M), "<=", 0) # He therefore wants at least one wire mesh sculpture displayed if a computer-generated drawing is displayed
+add.constraint(p1, c(-1,-1,	-1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, M), "<=", 0 + M) #he wants at least one computer-generated drawing displayed if a wire mesh sculpture is displayed
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1)   #at least one photo-realistic painting 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one cubist painting 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one expressionist painting 1
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1, 0), ">=", 1) #at least one watercolor painting 6
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one oil painting 5
+add.constraint(p1, c(2,	2,	2,	2,	2,	2,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	2,	2,	-1,	-1,	-1,	2,	2,	-1,	-1,-1, -1, 0), ">=", 0) #the number of paintings 18 to be no greater than twice the number of other art forms 16 | 2 painting is less then twice the # of other art 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1, 0), "=", 4) #Artie wants all his own paintings included in the exhibit since he is sponsoring the exhibit 4
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "=", 2) #he wants both of Helen Row paintings displayed
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #He therefore decides to display as many pieces from David Lyman 3 as from Ziggy Stardust and to display at least one piece from each of them
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) ##He therefore decides to display as many pieces from David Lyman as from Ziggy Stardust 2 and to display at least one piece from each of them
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0, -1,	-1,	-1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "=", 0)##He therefore decides to display as many pieces from David Lyman as from Ziggy Stardust 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0, 0), "<=", 1) #Artie will therefore only accept one display piece from Rick, if any at all
+add.constraint(p1, c(-1,-1,	-1,	2,	2,	2,	2,	-1,	-1,	2,	2,-1,	-1,	-1,	-1,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1,	-1,	-1,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1, 0), ">=", 0)#To support female artists, she decides to include at least one piece from a female artist for every two pieces included from a male art
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #To advance environmentalism, she decides to include either one or both of the pieces "Aging Earth" and "Wasted Resources." 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) # To advance Native American rights, she decides to include at least one piece by Bear Canton
+add.constraint(p1, c(0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) # To advance science, she decidesto include at least one of the following pieces: "Beyond," "Who Has Control," "Where are we now?" and "Pioneers."
+add.constraint(p1, c(1,	1,	1,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "<=", 4) #The museum only has enough floor space for four sculptures
+add.constraint(p1, c(0,	0,	0,	1,	1,	1,	1,	0,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1, 0), "<=", 20) #The museum only has enough floor space for around 20 paintings, collages, and drawings
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, -1,	0,	0,	0,	0, 0), ">=", 0) #if "Narcissism" is displayed Reflection" should also be displayed
+
+# Set the type (real, integer or binary) of each decision variable
+set.type(p1, 1, "binary")
+set.type(p1, 2, "binary")
+set.type(p1, 3, "binary")
+set.type(p1, 4, "binary")
+set.type(p1, 5, "binary")
+set.type(p1, 6, "binary")
+set.type(p1, 7, "binary")
+set.type(p1, 8, "binary")
+set.type(p1, 9, "binary")
+set.type(p1, 10, "binary")
+set.type(p1, 11, "binary")
+set.type(p1, 12, "binary")
+set.type(p1, 13, "binary")
+set.type(p1, 14, "binary")
+set.type(p1, 15, "binary")
+set.type(p1, 16, "binary")
+set.type(p1, 17, "binary")
+set.type(p1, 18, "binary")
+set.type(p1, 19, "binary")
+set.type(p1, 20, "binary")
+set.type(p1, 21, "binary")
+set.type(p1, 22, "binary")
+set.type(p1, 23, "binary")
+set.type(p1, 24, "binary")
+set.type(p1, 25, "binary")
+set.type(p1, 26, "binary")
+set.type(p1, 27, "binary")
+set.type(p1, 28, "binary")
+set.type(p1, 29, "binary")
+set.type(p1, 30, "binary")
+set.type(p1, 31, "binary")
+set.type(p1, 32, "binary")
+set.type(p1, 33, "binary")
+set.type(p1, 34, "binary")
+set.type(p1, 35, "binary")
+
+# Solve the model, if this return 0 an optimal solution is found
+solve(p1)
+```
+
+#### Proposal 2 -  Minimum cost while displaying at least 20 art pieces
+
+In proposal 2, we are considering at least 20 pieces to ensure that the exhibit draws the attention of the public. My analysis shows that we would need at **minimum $5.45 million**. In Table 2 we can see the 20 art pieces that should be displayed.
+
+*Table 2: Minimum cost is $5.45 Million for displaying at least 20 art pieces*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Stracture Table
+data$Solution2 <- get.variables(p1)[1:34]
+data2 <- subset(data, Solution2 == 1)
+data2 <- data2[c(2:4, 6)]
+row.names(data2) <- 1:nrow(data2)
+colnames(data2)[4]<- "Price ($1000)"
+data2["Total", ] <- colSums(data2[4])
+#Visualize Data
+options(knitr.kable.NA = '')
+data2 %>%
+  kable("html", row.names = TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(data2), bold = T, color = "white", background = "green") %>%
+  column_spec(5, bold = T) 
+
+```
+
+
+```{r include=FALSE}
+# Number of simulations
+set.seed(1234)
+n <- 1000
+# Intialize vector to hold simulation results
+rp3 <- vector()
+for(i in 1:n){
+# This model has choice variables that are binary
+p1 <- make.lp(0, 35)
+lp.control(p1, sense = "min")
+
+# Set penatlty variable to force either-or of constraint
+M <- 10000
+
+obj_fn <- c(runif(34, data$Price...1000. - (data$Price...1000.)*0.20, data$Price...1000. + (data$Price...1000.)*0.20), 0)
+set.objfn(p1, obj_fn)
+colnames(p1) <- c(data$Description , "M_penatlty")
+# Add constraints
+add.constraint(p1, c(rep(1, 34), 0), ">=", 20) #must include at least 20 pieces
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0, 0), "=", 1) #include only one collage 4
+add.constraint(p1, c(1,	1,	1,	-1,	-1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,-M), "<=", 0) # He therefore wants at least one wire mesh sculpture displayed if a computer-generated drawing is displayed
+add.constraint(p1, c(-1,-1,	-1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, M), "<=", 0 + M) #he wants at least one computer-generated drawing displayed if a wire mesh sculpture is displayed
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1)   #at least one photo-realistic painting 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one cubist painting 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one expressionist painting 1
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1, 0), ">=", 1) #at least one watercolor painting 6
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #at least one oil painting 5
+add.constraint(p1, c(2,	2,	2,	2,	2,	2,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	2,	2,	-1,	-1,	-1,	2,	2,	-1,	-1,-1, -1, 0), ">=", 0) #the number of paintings 18 to be no greater than twice the number of other art forms 16 | 2 painting is less then twice the # of other art 3
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1, 0), "=", 4) #Artie wants all his own paintings included in the exhibit since he is sponsoring the exhibit 4
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "=", 2) #he wants both of Helen Row paintings displayed
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #He therefore decides to display as many pieces from David Lyman 3 as from Ziggy Stardust and to display at least one piece from each of them
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) ##He therefore decides to display as many pieces from David Lyman as from Ziggy Stardust 2 and to display at least one piece from each of them
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0, -1,	-1,	-1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "=", 0)##He therefore decides to display as many pieces from David Lyman as from Ziggy Stardust 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0, 0), "<=", 1) #Artie will therefore only accept one display piece from Rick, if any at all
+add.constraint(p1, c(-1,-1,	-1,	2,	2,	2,	2,	-1,	-1,	2,	2,-1,	-1,	-1,	-1,	2,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1,	-1,	-1,	2,	2,	-1,	-1,	-1,	-1,	-1,	-1, 0), ">=", 0)#To support female artists, she decides to include at least one piece from a female artist for every two pieces included from a male art
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) #To advance environmentalism, she decides to include either one or both of the pieces "Aging Earth" and "Wasted Resources." 
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) # To advance Native American rights, she decides to include at least one piece by Bear Canton
+add.constraint(p1, c(0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), ">=", 1) # To advance science, she decidesto include at least one of the following pieces: "Beyond," "Who Has Control," "Where are we now?" and "Pioneers."
+add.constraint(p1, c(1,	1,	1,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, 0), "<=", 4) #The museum only has enough floor space for four sculptures
+add.constraint(p1, c(0,	0,	0,	1,	1,	1,	1,	0,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1, 0), "<=", 20) #The museum only has enough floor space for around 20 paintings, collages, and drawings
+add.constraint(p1, c(0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0, -1,	0,	0,	0,	0, 0), ">=", 0) #if "Narcissism" is displayed Reflection" should also be displayed
+
+# Set the type (real, integer or binary) of each decision variable
+set.type(p1, 1, "binary")
+set.type(p1, 2, "binary")
+set.type(p1, 3, "binary")
+set.type(p1, 4, "binary")
+set.type(p1, 5, "binary")
+set.type(p1, 6, "binary")
+set.type(p1, 7, "binary")
+set.type(p1, 8, "binary")
+set.type(p1, 9, "binary")
+set.type(p1, 10, "binary")
+set.type(p1, 11, "binary")
+set.type(p1, 12, "binary")
+set.type(p1, 13, "binary")
+set.type(p1, 14, "binary")
+set.type(p1, 15, "binary")
+set.type(p1, 16, "binary")
+set.type(p1, 17, "binary")
+set.type(p1, 18, "binary")
+set.type(p1, 19, "binary")
+set.type(p1, 20, "binary")
+set.type(p1, 21, "binary")
+set.type(p1, 22, "binary")
+set.type(p1, 23, "binary")
+set.type(p1, 24, "binary")
+set.type(p1, 25, "binary")
+set.type(p1, 26, "binary")
+set.type(p1, 27, "binary")
+set.type(p1, 28, "binary")
+set.type(p1, 29, "binary")
+set.type(p1, 30, "binary")
+set.type(p1, 31, "binary")
+set.type(p1, 32, "binary")
+set.type(p1, 33, "binary")
+set.type(p1, 34, "binary")
+set.type(p1, 35, "binary")
+
+# Solve the model, if this return 0 an optimal solution is found
+solve(p1)
+  
+### Solution Table
+rp3 <- rbind(rp3, get.objective(p1))
+
+}
+
+```
+
+
+#### Proposal 3 -  Impact on Proposal 2 given cost uncertainty
+
+We know from our previous experiences, cost associated with each art piece varies. Proposal 3 considers how expense fluctuations impact our total cost from proposal 2. I ran 1000 simulations where the cost of each piece of art increased or decreased by as much as 20%. In table 3, we can see the distribution of the total cost from those 1000 scenarios. The result indicates that we should be prepared to spend somewhere **between $5.24 million and $5.56 million** with $5.4 million being the average cost.
+
+
+*Table 3: Impact on Proposal 2 with cost uncertainty ranges from $4.9 Million to $5.9 Million*
+```{r echo=FALSE}
+# Make table of output
+out_rp3 <- round(rbind(apply(rp3, 2, mean), apply(rp3, 2, sd), 
+                      apply(rp3, 2, max), apply(rp3, 2, min)), 2)
+rownames(out_rp3) <- c("Mean", "Standard Deviation", "Max", "Min")
+colnames(out_rp3) <- c("Total Cost ($1000)")
+# Visual the data
+out_rp3 %>%
+kable("html", row.names= TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(1, bold = T, color = "white", background = "green") %>%
+  row_spec(2, bold = T, color = "white", background = "green") %>%
+  column_spec(1, bold = T) 
+hist(rp3, probability = TRUE, main = "Cost Distribution from 1000 simulation",
+     xlab ="Total Cost ($1000)")
+lines(density(rp3))
+
+```
+
+### Relevant Final Thoughts
+Artie Fophartie approached our museum to use his lottery winnings to support his passion in art. In order to support him in his passion, the budget of $4 million along with specific requirements for the exhibit, we can only display 15 art pieces. To attract a larger audience and further support Artie's cause with at least 20 art pieces, the budget should be between $5.24 million and $5.56 million.

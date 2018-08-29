@@ -1,0 +1,508 @@
+---
+output: html_document
+---
+
+#### **To:**   Seymore Butts
+  
+#### **From:** Afsar Ali  
+  
+#### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
+  
+#### **RE:** Analysis of the Proposals to reduce average level of in-process inventory 
+
+***
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# Title: Artie's Dream
+# Purpose: Final Project 
+# Date: May 31, 2018
+# Author: Afsar Ali
+
+# Clear packages 
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(
+  paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
+  detach, character.only = TRUE, unload = TRUE)
+
+# Clear environment
+rm(list = ls(all = TRUE)) 
+
+# Load packages
+library(tidyverse)
+library(queueing)
+library(kableExtra)
+library(formattable)
+```
+
+
+### Executive Summary
+
+How can we reduce the average number of poster sheets waiting to complete inspection? I was tasked with analyzing and producing solutions to reduce the backlog by taking into account the cost associated with each task and cost of in-process inventory. According to my findings, we should only use 8 printing press, increase the print time by 15 mins and hire an additional inspector. This will reduce our **Total cost by $50.63 per hour** from current the total cost of $203.14 per hour to $152.51 per hour and optimizes our overall operation. With the task of analyzing the two initial proposals we discussed, I was able to create a third solution that maximizes the poster sheet flow while minimizing our cost. 
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#Current Status:
+
+# Evaluating the status quo print reproductions of the paintings and photographs
+lam_f <- 7 # The poster sheets arrive randomly to the group of presses at a mean rate of 7 per hour 
+mu_f <- 1  #The time required to make a print has an exponential distribution with a mean of 1 hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 7 #the cost of the power for running each press $7.00
+s <- ceiling(lam_f/mu_f)+1 # lam < s*mu in steady state, so rearrange to find min s 
+n <- 12 # Max number of servers
+p4_p <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  L <- q1_f$L   # Mean number of print in queue system
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_p <- rbind(p4_p, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+colnames(p4_p) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_p)
+
+# Evaluating the status quo inspection station
+lam_f <- 7  #the prints arrive randomly at an inspection station at the same mean rate as the sheets arrived at the presses (7 per hour)
+mu_f <- 8 #Each inspection takes him 7.5 minutes, so he can inspect 8 prints per hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 17 # the current inspector is in a lower job classification where the compensation is $17 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 3 # Max number of servers
+p4_i <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  #L is the all inventory (work in process) of the queue system while Lq is the portion of L that is idle (queue waiting)
+  L <- q1_f$L   # Mean number of print in queue system 
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_i <- rbind(p4_i, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+
+colnames(p4_i) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_i)
+rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 9 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[2,9:10]) #using 9 presses and 2 inspector
+rbind(p4_i[1, 9:10]+p4_p[3,9:10], #using 10 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[3,9:10]) #using 10 presses and 2 inspector
+```
+#### Current Status Report 
+
+Table 1 breaks down our status quo. Our current **total cost is $203.14 per hour** (highlighted green). There is an average of 7 to 8 posters in Printing Press and 7 posters in the Inspection Station, which we can call work-in-process inventory (WIP). The inventory waiting in the queue (WIQ) for service is an average of 0 to 1 posters at Printing Press and 6 posters at the Inspection Station. The wait time of the inventory in the queue for service is in average 4 minutes 25 seconds at Printing Press and 52 minutes 30 seconds in the Inspection Station. We are already aware that there is a backlog at the Inspection Station. Excluding the Cost of servers, the result shows that the main impact on in-process inventory cost comes from the Inspection Station $49 per hour for inventory waiting to be serviced (highlighted red).
+
+*Table 1: Currently the Total Cost is $203.14 per hour *
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+now <- as.data.frame(cbind(p4_p[3,],#using 10 presses and 1 inspector
+                           p4_i[1,])) #using 10 presses and 1 inspector
+#L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
+rownames(now) <- c( "Servers",
+                    "Average number of posters (WIP)", 
+                    "Average number of posters in queue (WIQ)", 
+                    "Average wait time (WIP) (in Minutes)",
+                    "Average wait time in queue waiting for service (WIQ) (in Minutes)",
+                    "Cost of servers",
+                    "Cost of in-process inventory waiting for service (WIQ) ($ Per Hour)",
+                    "Cost of all in-process inventory (WIP) ($ Per Hour)",
+                    "Cost of in-process inventory in queue including server cost (WIQ) ($ Per Hour)",
+                    "Total Cost ($ Per Hour)")
+colnames(now)<- c("Printing Press","Inspection Station")
+now$Total = rowSums(now)
+
+options(knitr.kable.NA = '')
+now %>%
+  kable("html", row.names = TRUE, escape = F) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(now), bold = T, color = "white", background = "green") %>%
+  row_spec(nrow(now)-3, bold = T, color = "white", background = "darkred") %>%
+  column_spec(4, bold = T) 
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+##Proposal 4: Take slightly longer to make the prints (which would increase their average time to make a print to 1.2 hours), so that the inspector can keep up with his output better. This also would reduce the  cost of the power for running each press from $7.00 to $6.50 per hour. (By contrast, decreasing the time would increase this cost to $7.50 per hour while decreasing the average time to make a print to 0.8 hour.):
+
+# Evaluating the status quo print reproductions of the paintings and photographs
+lam_f <- 7 # The poster sheets arrive randomly to the group of presses at a mean rate of 7 per hour 
+mu_f <- 1/1.2  #The time required to make a print has an exponential distribution with a mean of 1 hour; increase their average time to make a print to 1.2 hours
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 6.5 #the cost of the power for running each press $7.00 to $6.50 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 12 # Max number of servers
+p4_p <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  L <- q1_f$L   # Mean number of print in queue system
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_p <- rbind(p4_p, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+colnames(p4_p) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_p)
+
+# Evaluating the status quo inspection station
+lam_f <- 7  #the prints arrive randomly at an inspection station at the same mean rate as the sheets arrived at the presses (7 per hour)
+mu_f <- 8 #Each inspection takes him 7.5 minutes, so he can inspect 8 prints per hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 17 # the current inspector is in a lower job classification where the compensation is $17 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 3 # Max number of servers
+p4_i <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  #L is the all inventory (work in process) of the queue system while Lq is the portion of L that is idle (queue waiting)
+  L <- q1_f$L   # Mean number of print in queue system 
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_i <- rbind(p4_i, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+
+colnames(p4_i) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_i)
+rbind(p4_i[1, 9:10]+p4_p[1,9:10], #using 9 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[1,9:10]) #using 9 presses and 2 inspector
+rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 10 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[2,9:10]) #using 10 presses and 2 inspector
+```
+#### Proposed: Decreasing print time 
+
+If we were to take slightly longer time to make the prints, so that the inspector can keep up with the output and reduce the cost of the power for running each press from $7.00 to $6.50 per hour, the **total cost would increase by $23.24 per hour**, from current total cost of $203.14 per hour to $226.38 per hour (highlighted green in table 2). This increase is due to the cost of in-process inventory, by decreasing the print time the average WIP inventory goes from 7-8 posters to about 11 posters in printing press. Although the cost of printing press gets reduced by $5, the result shows that cost of in-process inventory WIQ increases from $4.14 per hours to $21.18 per hour (highlighted red in table 2). 
+
+*Table 2: Decreasing print time by 10 mins would increase Total Cost by $23.24 per hour *
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p4a <- as.data.frame(cbind(p4_p[2,],#using 10 presses and 1 inspector
+                           p4_i[1,])) #using 10 presses and 1 inspector
+#L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
+rownames(p4a) <- c( "Servers",
+                    "Average number of posters (WIP)", 
+                    "Average number of posters in queue (WIQ)", 
+                    "Average wait time (WIP) (in Minutes)",
+                    "Average wait time in queue waiting for service (WIQ) (in Minutes)",
+                    "Cost of servers",
+                    "Cost of in-process inventory waiting for service (WIQ) ($ Per Hour)",
+                    "Cost of all in-process inventory (WIP) ($ Per Hour)",
+                    "Cost of in-process inventory in queue including server cost (WIQ) ($ Per Hour)",
+                    "Total Cost ($ Per Hour)")
+colnames(p4a)<- c("Printing Press","Inspection Station")
+p4a$Total = rowSums(p4a)
+
+now1 <- cbind(now, p4a)
+
+options(knitr.kable.NA = '')
+now1 %>%
+  kable("html", row.names = TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(now1), bold = T, color = "white", background = "green") %>%
+  row_spec(nrow(now1)-3, bold = T, color = "white", background = "darkred") %>%
+  column_spec(4, bold = T) %>%
+  column_spec(7, bold = T) %>%
+  add_header_above(c(" ", "Current" = 3, "Proposed: Decreasing print time" = 3))
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+##Proposal 4: Take slightly longer to make the prints (which would increase their average time to make a print to 1.2 hours), so that the inspector can keep up with his output better. This also would reduce the  cost of the power for running each press from $7.00 to $6.50 per hour. (By contrast, decreasing the time would increase this cost to $7.50 per hour while decreasing the average time to make a print to 0.8 hour.):
+
+# Evaluating the status quo print reproductions of the paintings and photographs
+lam_f <- 7 # The poster sheets arrive randomly to the group of presses at a mean rate of 7 per hour 
+mu_f <- 1/.8  #The time required to make a print has an exponential distribution with a mean of 1 hour; decrease their average time to make a print to .8 hours
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 7.5 #the cost of the power for running each press $7.00 to $7.50 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 12 # Max number of servers
+p4_p <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  L <- q1_f$L   # Mean number of print in queue system
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_p <- rbind(p4_p, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+colnames(p4_p) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_p)
+
+# Evaluating the status quo inspection station
+lam_f <- 7  #the prints arrive randomly at an inspection station at the same mean rate as the sheets arrived at the presses (7 per hour)
+mu_f <- 8 #Each inspection takes him 7.5 minutes, so he can inspect 8 prints per hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 17 # the current inspector is in a lower job classification where the compensation is $17 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 3 # Max number of servers
+p4_i <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  #L is the all inventory (work in process) of the queue system while Lq is the portion of L that is idle (queue waiting)
+  L <- q1_f$L   # Mean number of print in queue system 
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_i <- rbind(p4_i, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+
+colnames(p4_i) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_i)
+rbind(p4_i[1, 9:10]+p4_p[1,9:10], #using 9 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[1,9:10]) #using 9 presses and 2 inspector
+rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 10 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[2,9:10]) #using 10 presses and 2 inspector
+```
+#### Proposed: Increasing print time 
+
+By contrast, if we were increasing the print time, it would increase the cost of the power for running each press by $7.50 per hour but the total cost would **decrease by $9.63 per hour**, from current total cost of $203.14 per hour to $193.51.38 per hour (highlighted green in table 3). This decrease is due to the decrease in cost of in-process inventory, by increasing the print time the average WIP inventory goes from 7-8 posters to about 5-6 posters in printing press. Although the cost of printing press increases by $5, the result shows that the cost of in-process inventory WIP decreases from $60.14 per hours to $45.51 per hour  (highlighted red in table 3). This proposed solution should be considered in our final decision.
+
+*Table 3: Increasing print time by 15 mins would decrease the Total Cost by $9.63 per hour *
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p4b <- as.data.frame(cbind(p4_p[5,],#using 10 presses and 1 inspector
+                           p4_i[1,])) #using 10 presses and 1 inspector
+#L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
+rownames(p4b) <- c( "Servers",
+                    "Average number of posters (WIP)", 
+                    "Average number of posters in queue (WIQ)", 
+                    "Average wait time (WIP) (in Minutes)",
+                    "Average wait time in queue waiting for service (WIQ) (in Minutes)",
+                    "Cost of servers",
+                    "Cost of in-process inventory waiting for service (WIQ) ($ Per Hour)",
+                    "Cost of all in-process inventory (WIP) ($ Per Hour)",
+                    "Cost of in-process inventory in queue including server cost (WIQ) ($ Per Hour)",
+                    "Total Cost ($ Per Hour)")
+colnames(p4b)<- c("Printing Press","Inspection Station")
+p4b$Total = rowSums(p4b)
+
+now2 <- cbind(now, p4b)
+
+options(knitr.kable.NA = '')
+now2 %>%
+  kable("html", row.names = TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(now2), bold = T, color = "white", background = "green") %>%
+  row_spec(nrow(now2)-2, bold = T, color = "white", background = "darkred") %>%
+  column_spec(4, bold = T) %>%
+  column_spec(7, bold = T) %>%
+  add_header_above(c(" ", "Current" = 3, "Proposed: Increasing print time" = 3))
+```    
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#Proposal 5: Substitute a more experienced inspector for this task. She is somewhat faster at 7 minutes per poster, so she should keep up better. However, this inspector is in a job classification that calls for a total compensation (including benefits) of $19 per hour, whereas the current inspector is in a lower job classification where the compensation is $17 per hour:
+
+# Evaluating the status quo print reproductions of the paintings and photographs
+lam_f <- 7 # The poster sheets arrive randomly to the group of presses at a mean rate of 7 per hour 
+mu_f <- 1  #The time required to make a print has an exponential distribution with a mean of 1 hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 7 #the cost of the power for running each press $7.00
+s <- ceiling(lam_f/mu_f)+1 # lam < s*mu in steady state, so rearrange to find min s 
+n <- 12 # Max number of servers
+p4_p <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  L <- q1_f$L   # Mean number of print in queue system
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_p <- rbind(p4_p, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+colnames(p4_p) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_p)
+
+# Evaluating the status quo inspection station
+lam_f <- 7  #the prints arrive randomly at an inspection station at the same mean rate as the sheets arrived at the presses (7 per hour)
+mu_f <- 60/7 #Each inspection takes him 7 minutes, so he can inspect 8.57 prints per hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 19 # the current inspector is in a lower job classification where the compensation is $19 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 3 # Max number of servers
+p4_i <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  #L is the all inventory (work in process) of the queue system while Lq is the portion of L that is idle (queue waiting)
+  L <- q1_f$L   # Mean number of print in queue system 
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_i <- rbind(p4_i, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+
+colnames(p4_i) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_i)
+rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 9 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[2,9:10]) #using 9 presses and 2 inspector
+rbind(p4_i[1, 9:10]+p4_p[3,9:10], #using 10 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[3,9:10]) #using 10 presses and 2 inspector
+```
+#### Proposed: Experienced inspector  
+
+If we were to substitute a more experienced inspector, the **total cost would decrease by $18.36 per hour**, from current total cost of $203.14 per hour to $184.78 per hour (highlighted green in table 4). Similar to the proposal to increase print time, increasing the process in the inspections station decreases the cost of in-process inventory. By increasing the inspection speed the average WIP inventory goes from 7 posters to about 4-5 posters in the inspections station. Although the cost of inspection increases by $2, the result shows that cost of in-process inventory WIP decreases from $56 per hour to $35.64 per hour (highlighted red in table 4). The results from these proposals demonstrates that we can minimize our cost by optimizing the in-process inventory in both printing press and inspection station.
+
+*Table 4: Experienced inspector would decrease the Total Cost by $18.36 per hour *
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p5a <- as.data.frame(cbind(p4_p[3,],#using 10 presses and 1 inspector
+                           p4_i[1,])) #using 10 presses and 1 inspector
+#L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
+rownames(p5a) <- c( "Servers",
+                    "Average number of posters (WIP)", 
+                    "Average number of posters in queue (WIQ)", 
+                    "Average wait time (WIP) (in Minutes)",
+                    "Average wait time in queue waiting for service (WIQ) (in Minutes)",
+                    "Cost of servers",
+                    "Cost of in-process inventory waiting for service (WIQ) ($ Per Hour)",
+                    "Cost of all in-process inventory (WIP) ($ Per Hour)",
+                    "Cost of in-process inventory in queue including server cost (WIQ) ($ Per Hour)",
+                    "Total Cost ($ Per Hour)")
+colnames(p5a)<- c("Printing Press","Inspection Station")
+p5a$Total = rowSums(p5a)
+
+now3 <- cbind(now, p4b, p5a)
+
+options(knitr.kable.NA = '')
+now3 %>%
+  kable("html", row.names = TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(now3), bold = T, color = "white", background = "green") %>%
+  row_spec(nrow(now3)-2, bold = T, color = "white", background = "darkred") %>%
+  row_spec(2, bold = T, color = "white", background = "darkred") %>%
+  column_spec(4, bold = T) %>%
+  column_spec(7, bold = T) %>%
+  column_spec(10, bold = T) %>%
+  add_header_above(c(" ", "Current" = 3, "Proposed: Increasing print time" = 3, "Proposed: Experienced inspector" = 3))
+```    
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+# My Proposal:
+
+# Evaluating the status quo print reproductions of the paintings and photographs
+lam_f <- 7 # The poster sheets arrive randomly to the group of presses at a mean rate of 7 per hour 
+mu_f <- 1/.8  #The time required to make a print has an exponential distribution with a mean of 1 hour; decrease their average time to make a print to .8 hours
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 7.5 #the cost of the power for running each press $7.00 to $7.50 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 12 # Max number of servers
+p4_p <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  L <- q1_f$L   # Mean number of print in queue system
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_p <- rbind(p4_p, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+colnames(p4_p) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_p)
+
+# Evaluating the status quo inspection station
+lam_f <- 7  #the prints arrive randomly at an inspection station at the same mean rate as the sheets arrived at the presses (7 per hour)
+mu_f <- 8 #Each inspection takes him 7.5 minutes, so he can inspect 8 prints per hour
+p <- 8 #The cost of in-process inventory is estimated to be $8 per hour for each poster sheet at the presses or each print at the inspection station
+cost <- 17 # the current inspector is in a lower job classification where the compensation is $17 per hour
+s <- ceiling(lam_f/mu_f) # lam < s*mu in steady state, so rearrange to find min s 
+n <- 3 # Max number of servers
+p4_i <- vector() # Create matrix to hold data
+# Loop to find low cost
+for (i in s:n){
+  q1_fi <- NewInput.MMC(lam_f, mu_f, i) # Set and check the inputs of the model
+  q1_f <- QueueingModel.i_MMC(q1_fi) # Solve the queueing model
+  #L is the all inventory (work in process) of the queue system while Lq is the portion of L that is idle (queue waiting)
+  L <- q1_f$L   # Mean number of print in queue system 
+  Lq <- q1_f$Lq     # Mean number of print in queue
+  W <- q1_f$W*60  # Mean minutes print wait time in queue system
+  Wq <- q1_f$Wq*60   # Mean minutes print wait time in queue waiting for service
+  CL <- Lq*p   # Cost of in-process inventory in queue
+  CL2 <- L*p  # Cost of in-process inventory 
+  CS <- i*cost  # Cost of servers in queue system
+  p4_i <- rbind(p4_i, round(c(i, L, Lq, W, Wq, CS, CL, CL2, CL + CS, CL2 + CS), 2))   # Organize in table
+}
+
+colnames(p4_i) <- c("Servers", "L", "Lq", "W", "Wq", "CS", "CLq", "CL", "TCq", "TC")
+as.table(p4_i)
+rbind(p4_i[1, 9:10]+p4_p[3,9:10], #using 8 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[3,9:10]) #using 8 presses and 2 inspector
+rbind(p4_i[1, 9:10]+p4_p[5,9:10], #using 10 presses and 1 inspector
+      p4_i[2, 9:10]+p4_p[5,9:10]) #using 10 presses and 2 inspector
+```
+### Recommended Proposal: 2 Inspector, 8 Presses at increased rate
+
+The recommended proposal is a combination of both of the initial proposal. In Table 5 we can see that by using only 8 printing press, increasing the print time by 15 mins and hiring an additional inspector, we can reduce the **Total cost by $50.63 per hour** from current total cost of $203.14 per hour to $152.51 per hour (highlighted green). This is the optimal solution, that reduces our backlog significantly. The average number of posters WIP decreases from 7 posters to 1 poster and the wait time decreases from 60 minutes to 9 minutes and 16 seconds in the Inspection Station. This also results in significant cost reduction of the in-process inventory from $116.14 per hours to $58.51 (highlighted red in table 5). 
+
+*Table 5: 2 Inspector, 8 Presses at increased rate would decrease the Total Cost by $50.63 per hour*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+p6 <- as.data.frame(cbind(p4_p[3,],#using 8 presses and 2 inspector
+                           p4_i[2,])) #using 8 presses and 1 inspector
+#L is the all inventory (work in process) of the queue system while Lq (ork To Process)is the portion of L that is idle (queue waiting)
+rownames(p6) <- c( "Servers",
+                    "Average number of posters (WIP)", 
+                    "Average number of posters in queue (WIQ)", 
+                    "Average wait time (WIP) (in Minutes)",
+                    "Average wait time in queue waiting for service (WIQ) (in Minutes)",
+                    "Cost of servers",
+                    "Cost of in-process inventory waiting for service (WIQ) ($ Per Hour)",
+                    "Cost of all in-process inventory (WIP) ($ Per Hour)",
+                    "Cost of in-process inventory in queue including server cost (WIQ) ($ Per Hour)",
+                    "Total Cost ($ Per Hour)")
+colnames(p6)<- c("Printing Press","Inspection Station")
+p6$Total = rowSums(p6)
+
+now4 <- cbind(now, p6)
+
+options(knitr.kable.NA = '')
+now4 %>%
+  kable("html", row.names = TRUE) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  row_spec(nrow(now4), bold = T, color = "white", background = "green") %>%
+  row_spec(2, bold = T, color = "white", background = "darkred") %>%
+  row_spec(nrow(now4)-2, bold = T, color = "white", background = "darkred") %>%
+  column_spec(4, bold = T) %>%
+  column_spec(7, bold = T) %>%
+  add_header_above(c(" ", "Current" = 3, "Recommended Proposal" = 3))
+```  
+
+### Relevant Final Thoughts
+Carrying the in-process inventory is very costly and reducing the time it's in queue WIQ should be prioritized. The recommended proposal to only use 8 printing press, increasing the print time by 15 mins and hiring an additional inspector, reduces our inventory that's waiting in queue by 87% this results in 25% decrease in our overall cost. We can also have 2 printing press ready for operation if there are any maintenance issue with the other 8 printing press. 

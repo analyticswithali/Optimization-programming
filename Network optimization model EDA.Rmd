@@ -1,0 +1,797 @@
+---
+title: "Ali_BUAN Midterm Project"
+author: "Afsar Ali"
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output:
+  html_document: 
+    toc: true
+    toc_depth: '4'
+---
+
+# Objective
+```{r}
+# Course: BUAN 5260
+# Title: Week 4-Network optimization
+# Purpose: USE IFRC Information information to model scenarios 
+#           and make Recommendation Plans
+# Author: Afsar Ali
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Clear packages 
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(
+  paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
+  detach, character.only = TRUE, unload = TRUE)
+
+# Clear all data in environment
+rm(list=ls(all=TRUE))
+
+# Load packages
+library(igraph)
+library(lpSolve)
+library(lpSolveAPI)
+library(tidyverse)
+library(magrittr)
+library(data.table)
+
+set.seed(123)
+```
+#Loading and cleaning the data
+
+```{r, message=FALSE, warning=FALSE}
+#load Data 
+ifrc <- read.csv("5260_S18_Aiding_Africa_Data.csv", skip = 1)
+#Naming and Creating each table
+req_trv <- ifrc[1:3,1:3]
+mdata <- ifrc[,8:12]
+req <- ifrc[1:9,14:15]
+air_max <- ifrc[1:15,17:19]
+truck_max <- ifrc[1:6,21:23]
+
+#create nodes
+req$Requirements <- req$Requirements *-1
+req$City <- as.character(req$City)
+nodes<- rbind('1' = c('New York, NY', '500000'), '2' = c('Jacksonville, FL', '500000'), req)
+nodes$Requirements <- as.integer(nodes$Requirements)
+
+# Join the tables and create edges
+
+edges <- mdata %>%
+  left_join(req_trv, by = c("Type.1" = "Type")) %>%
+  mutate(Time = Distance / Speed) %>%
+  mutate(Cost = Cost * 1000) %>%
+  left_join(air_max, by = c("From" = "From.1", "To" = "To.1")) %>%
+  left_join(truck_max, by = c("From" = "From.2", "To" = "To.2")) 
+colnames(edges)[3] <- 'Type'
+
+#create constraints
+edges$Max.Airplanes <- edges$Max.Airplanes * edges$Capacity
+edges$Max.Trucks <- edges$Max.Trucks * edges$Capacity
+edges$Max.Airplanes[is.na(edges$Max.Airplanes)] <- 0
+edges$Max.Trucks[is.na(edges$Max.Trucks)] <- 0
+edges$Max <- edges$Max.Trucks + edges$Max.Airplanes
+edges$Max[is.na(edges$Max)] <- 0
+
+#Network ID
+edges$ID <- paste(edges$From, edges$To, sep = ' > ')
+```
+
+
+#1 Netowrk Map
+- Make sense all the Air Routes are the Fastest 
+```{r, message=FALSE, warning=FALSE}
+net <- graph_from_data_frame(d=edges, vertices=nodes, directed=T)
+
+net$layout <- matrix(c(-800, -800,  
+                       0,  0,  0, 0,  0, 0, 
+                       800, 800, 800,
+                       225, 125, 
+                       300, 250, 200, 150, 100, 50, 
+                       250, 175, 100), nc = 2)
+
+#Set Weight for Edges
+E(net)$weight = E(net)$Time
+#Create a Unique col
+edges$ID <- paste(edges$From, edges$To, sep = ' > ')
+#Add route attribute
+V(net)$route <- c("From","From","To","To","To","To","To","To","To","To","To")
+V(net)$color <- c("gold","green")[1+(V(net)$route=="From")]
+#look at the data
+glimpse(edges)
+
+# Get some colours in to visualise routes
+E(net)$color[E(net)$Type == 'Truck'] <- 'saddlebrown'
+E(net)$color[E(net)$Type == 'Airplane'] <- 'forestgreen'
+E(net)$color[E(net)$Type == 'Ship'] <- 'royalblue'
+
+
+#Plot Network Map
+plot(net, edge.arrow.size=.3, edge.label = round(E(net)$Time, 2), 
+     edge.width = 10*E(net)$Time/max(E(net)$Time),
+     vertex.size=25)
+```
+
+#2 Netowrk Map with Fastest Route
+-Bottlenecks are on Dakar, Senegal, Libreville, Garbon, Luanda, Angola
+-Quickest route is 20.60 hours From New York to Ndjamena, Chad
++New York, NY     > Kosongo, D.R. Congo = 21.04             
++New York, NY     > Ndjamena, Chad      = 20.60         
++New York, NY     > Niamey, Niger       = 22.76
++Jacksonville, FL > Kosongo, D.R. Congo = 21.15             
++Jacksonville, FL > Ndjamena, Chad      = 20.71         
++Jacksonville, FL > Niamey, Niger       = 22.87 
+
+
+```{r}
+#Create Table for shortest time
+distMatrix <- shortest.paths(net, v=V(net), to=V(net))
+
+as.data.frame(distMatrix)
+
+all_shortest_paths(net, c("New York, NY", 'Jacksonville, FL'), 
+                   c('Kosongo, D.R. Congo' ,"Ndjamena, Chad",
+                     'Niamey, Niger'))$res[[1]]
+
+# New York, NY  >  Khartoum, Sudan  >  Niamey, Niger  
+
+distances(net, c("New York, NY", 'Jacksonville, FL'), 
+                   c('Kosongo, D.R. Congo' ,"Ndjamena, Chad",
+                     'Niamey, Niger'))
+
+#                 Kosongo, D.R. Congo Ndjamena, Chad Niamey, Niger
+#New York, NY                   21.04          20.60         22.76
+#Jacksonville, FL               21.15          20.71         22.87
+
+shortMatrix<- mst(net, weights = NULL)
+shortMatrix
+plot(shortMatrix, edge.arrow.size=.2, edge.label = round(E(net)$Time, 2))
+```
+
+
+#3 - 2nd Plan considering cost and constraints 
+
+
+```{r}
+#Part 3 - Min Cost
+# Set up model
+min_cost <- make.lp(0, 30)
+## Set objective fn 
+obj_fn <- as.integer(as.vector(edges$Cost))
+set.objfn(min_cost, obj_fn)
+# Set up constraints
+#Input
+add.constraint(min_cost, c( 150, 240, 150, 150, 240, 240, 0  , 0  , 0  , 0  , 0   
+                            , 0  , 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   , 0   , 0  , 0   , 0   , 0  , 0   , 0   ), "=", 500000)  #NY
+add.constraint(min_cost, c( 0  , 0  , 0  , 0  , 0  , 0  , 150, 240, 150, 150, 240 
+                            , 240, 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   , 0   , 0  , 0   , 0   , 0  , 0   , 0   ), "=", 500000)  #FL
+
+#City Requirements 
+add.constraint(min_cost, c(-150, 0  , 0  , 0  , 0  , 0  ,-150, 0  , 0  , 0  , 0   
+                           , 0  , 150 , 0    , 0  , 0  , 0   , 0   , 150, 0   
+                           , 0  , 0  , 0   , 0   , 150, 0   , 0   , 0  , 0   , 0   ), "=", -150000)  #Lusaka
+add.constraint(min_cost, c( 0  ,-240, 0  , 0  ,  0  , 0  ,0   ,-240, 0  , 0  , 0  
+                            , 0  , 0   , 0    , 0  , 0  , 0   , 0   , 0  ,17.7 
+                            , 0  , 0  , 0   , 0   , 0  ,17.7 , 0   , 0  , 0   , 0   ), "=", -100000)  #Libreville
+add.constraint(min_cost, c( 0  ,0   ,-150, 0  ,  0  , 0  ,0   ,0   ,-150, 0  , 0  
+                            , 0  , 0   , 0    ,150 , 0  , 0   , 0   , 0  , 0   
+                            ,150 , 0  , 0   , 0   , 0  , 0   , 150 , 0  , 0   , 0   ), "=", -120000)  #Nairobi
+add.constraint(min_cost, c( 0  ,0   ,0   ,-150,  0  , 0  ,0   ,0   ,0   ,-150, 0  
+                            , 0  , 0   , 0    , 0  ,150 , 0   , 0   , 0  , 0   
+                            , 0  ,150 , 0   , 0   , 0  , 0   ,  0  , 150, 0   , 0   ), "=", -90000)   #Khartoum
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,-240 , 0  ,0   ,0   ,0   ,0   
+                            ,-240, 0  , 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   
+                            , 0  , 0  ,17.7 , 0   , 0  , 0   ,  0  , 0  ,17.7 , 0   ), "=", -130000)  #Luanda
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   , 0   ,-240,0   ,0   ,0   ,0   , 0  
+                            ,-240, 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   ,17.7 , 0  , 0   ,  0  , 0  , 0   ,17.7 ), "=", -50000)   #Dakar
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,0    ,0   ,0   ,0   ,0   ,0   , 0  
+                            ,0   ,-150 , 0    ,-150,-150, 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   , 0   , 0  , 0   ,  0  , 0  , 0   , 0   ), "=", -100000)  #Niamey Air routes only
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,0    ,0   ,0   ,0   ,0   ,0   , 0  
+                            ,0   , 0   , 0    , 0  , 0  , 0   , 0   ,-150,-17.7,
+                            -150,-150,-17.7,-17.7, 0  , 0   ,  0  , 0  , 0   , 0   ), "=", -180000)  #Kosongo
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,0    ,0   ,0   ,0   ,0   ,0   , 0  
+                            ,0   , 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   
+                            , 0  , 0  , 0   , 0   ,-150,-17.7,-150 ,-150,-17.7,-17.7), "=", -80000)  #Ndjamena
+
+#additional constraint
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,0    ,0   ,0   ,0   ,0   ,0   , 0  
+                            ,0   , 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   , 0   , 0  ,1 , 0   , 0  ,1 ,1), "<=", 840) #Ndjmamena Truck constraint
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,0    ,0   ,0   ,0   ,0   ,0   , 0  
+                            ,0   , 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   , 0   ,1 , 0   , 0   , 0  , 0   , 0   ), "<=", (200)) #200 flights from tLusaka-Ndjmamena constrain
+add.constraint(min_cost, c( 0  ,0   ,0   ,0   ,0    ,0   ,0   ,0   ,0   ,0   , 0  
+                            ,0   , 0   , 0    , 0  , 0  , 0   , 0   , 0  , 0   , 0  
+                            , 0  , 0   , 0   , 0  , 0   , 0   ,1 , 0   , 0   ), "<=", (200)) #200 flights from Khartoum-Ndjmamena constraint
+
+#set names
+dimnames(min_cost) <- list(c("New York", "Jacksonville","Lusaka", 
+                             "Libreville", "Nairobi", "Khartoum", "Luanda", 
+                             "Dakar", "Niamey", "Kosongo", "Ndjamena", 
+                             "Ndjamena Truck Limit", "Lusaka->Ndjmamena limited Flights",
+                             "Khartoum->Ndjmamena limited Flights"), as.vector(edges$ID) )
+
+# Write to view the algebraic formulation
+write.lp(min_cost, "5260_S18_minterm_min_cost.lp",type = 'lp')
+
+# Solve the model
+solve(min_cost)
+
+# Make results and sensitivity table 
+ps <- get.primal.solution(min_cost)
+obj_sa <- get.sensitivity.obj(min_cost)
+rhs_sa <- get.sensitivity.rhs(min_cost)
+
+nv <- length(get.variables(min_cost))
+mc <- length(get.constr.type(min_cost))
+ov <- paste0("Objective Value = ", ps[1])
+
+sa_tab <- rbind(ps[2:(nv + mc + 1)], 
+                round(c(rhs_sa$duals[1:mc], obj_fn), 2),
+                round(c(rhs_sa$dualsfrom[1:mc],obj_sa$objfrom), 2),
+                round(c(rhs_sa$dualstill[1:mc],obj_sa$objtill), 2)) 
+colnames(sa_tab) <- c(rownames(min_cost), colnames(min_cost))
+rownames(sa_tab) <- c("solution", "duals/coef", "Sens From", "Sens Till")      
+
+# Objective value and sensitivity analysis table Transposing for better quality 
+m1<- as.data.frame(sa_tab)
+tm1 <- transpose(m1)
+setnames(tm1, rownames(m1))
+colnames(tm1) <- rownames(m1)
+rownames(tm1) <- colnames(m1)
+ov
+tm1
+
+
+```
+
+##Graph the Min Cost Solution
+
+```{r}
+
+# Include solution in edges dataframe
+edges$flow <- get.variables(min_cost)
+edges$Mincost <- edges$flow * edges$Cost
+g <- edges %>%
+  # creating igraph: "from" and "to" fields in the first two colums
+  select(From, To, ID, Capacity, Cost, Type, flow, Mincost) %>%
+  # Make into graph object
+  graph_from_data_frame()
+
+#Add route attribute
+V(g)$route <- c("From","From","To","To","To","To","To","To","To","To","To")
+V(g)$color <- c("gold","green")[1+(V(net)$route=="From")]
+
+
+# Get some colours in to visualise routes
+E(g)$color[E(g)$Type == 'Truck'] <- 'saddlebrown'
+E(g)$color[E(g)$Type == 'Airplane'] <- 'forestgreen'
+E(g)$color[E(g)$Type == 'Ship'] <- 'royalblue'
+E(g)$color[E(g)$Mincost == 0] <- 'white'
+
+g$layout <- matrix(c(-800, -800,  
+                       0,  0,  0, 0,  0, 0, 
+                       800, 800, 800,
+                       225, 125, 
+                       300, 250, 200, 150, 100, 50, 
+                       250, 175, 100), nc = 2)
+
+get.variables(min_cost)
+# Flow as edge size and colour
+plot(g, edge.width = 15*E(g)$Mincost/max(E(g)$Mincost), 
+     edge.arrow.size=.4,
+     edge.label = as.integer(E(g)$Mincost),  vertex.size=35)
+#[E(g)$Mincost >= 0]
+#vertex.size=24
+
+```
+
+#4 - Last Plan Max Flow with many constraints 
+
+```{r}
+#Maximum Flow
+
+# Set up model
+max_flow <- make.lp(0, 41)
+lp.control(max_flow, sense = "max")
+
+## Set objective fn
+obj_fn <- c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1)
+set.objfn(max_flow, obj_fn)
+
+# Set up constraints
+add.constraint(max_flow, c( 1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),            "<=", 1000000)#inflow
+add.constraint(max_flow, c(-1,0,150,240,150,150,240,240,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0), "=",  0 )  #NY
+add.constraint(max_flow, c(0,-1,0,0,0,0,0,0,150,240,150,150,240,240,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),  "=",  0)  #FL
+add.constraint(max_flow, c(0,0,-150,0,0,0,0,0,-150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,1,0,0,0,0,0,0,0,0),    "=",  0)  #Lusaka
+add.constraint(max_flow, c(0,0,0,-240,0,0,0,0,0,-240,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,1,0,0,0,0,0,0,0),"=",  0)  #Libreville
+add.constraint(max_flow, c(0,0,0,0,-150,0,0,0,0,0,-150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,1,0,0,0,0,0,0),   "=",  0)  #Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,-150,0,0,0,0,0,-150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,1,0,0,0,0,0),   "=",  0)   #Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,-240,0,0,0,0,0,-240,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,1,0,0,0,0),"=",  0)  #Luanda
+add.constraint(max_flow, c(0,0,0,0,0,0,0,-240,0,0,0,0,0,-240,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,1,0,0,0), "=",  0)   #Dakar
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,-150,-17.7,-150,-150,-17.7,-17.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),"=",  0)  #Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-150,-17.7,-150,-150,-17.7,-17.7,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0),"=",  0)  #Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-150,-17.7,-150,-150,-17.7,-17.7,0,0,0,0,0,0,0,0,1),"=",  0)  #Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1),          "<=", 1000000) #OUtflow
+
+# Air Constraints
+add.constraint(max_flow, c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #NY-Lusak
+add.constraint(max_flow, c(0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500) #NY-Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500) #NY-Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500) #FL-Lusaka
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 700) #FL-Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 600) #FL-Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 200) #Lusaka-Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 0) #Nairobi-Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #Khartoum-Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 140) #Lusaka-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 40 ) #Nairobi-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 80 ) #Khartoum-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 0  ) #Lusaka-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #Nairobi-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0),          "<=", 40 ) #Khartoum-Ndja
+
+# Truck Contraints
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 250) #Lunda-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0),          "<=", 240) #Lunda-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #Lib-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 160) #Lib-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 700) #Dakar-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0),          "<=", 450) #Dakar-Ndjamena
+
+# City REquirements Constraints
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0),          "<=", 150000) #Lusaka
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),          "<=", 100000) #Liber
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0),          "<=", 120000) #Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0),          "<=", 90000) #Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0),          "<=", 130000) #Lunada
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),          "<=", 50000) #Dakar
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),          "<=", 100000) #Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0),          "<=", 180000) #Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),          "<=", 80000) #Ndjamena
+
+
+dimnames(max_flow) <- list(c("Inflow","New York", "Jacksonville","Lusaka", "Libreville", "Nairobi",
+                       "Khartoum", "Luanda", "Dakar", "Niamey", "Kosongo", "Ndjamena", "Max Outflow", 
+                       "Ny-Lusaka AirC", "NY-Nairobi AirC", "NY-Khartoum AirC", 
+                       "JAX-Lusaka AirC", "JAX-Nairobi AirC","JAX-Khartoum AirC", 
+                       "Lusaka-Niamey AirC", "Nairobi-Niamey AirC", "Khartoum-Niamey AirC", 
+                       "Lusaka-Kosongo AirC","Nairobi-Kosongo AirC", "Khartoum-Kosongo AirC",
+                       "Lusaka-Ndjamena AirC", "Nairobi-Ndjamena AirC", "Khartoum-Ndjamena AirC",
+                       "Luanda-Kosongo TruckC", "Luanda-Ndjamena TruckC", "Libreville-Kosongo TruckC", 
+                       "Libreville-Ndjamena TruckC", "Dakar-Kosongo TruckC", "Dakar-Ndjamena TruckC", 
+                       "LusakaR", "LibrevilleR", "NairobiR", "KhartoumR", 
+                       "LuandaR", "DakarR", "NiameyR", "KosongoR", "NdjamenaR"),
+                       c("I-NY", "I-JAX", as.vector(edges$ID), "Lusaka-O", "Libreville-O", 
+                         "Nairobi-O", "Khartoum-O", "Luanda-O","Dakar-O", "Niamey-O",
+                         "Kosongo-O", "Ndjamena-O") )
+
+# Write to view the algebraic formulation
+write.lp(max_flow, "5260_S18_minterm_max_flow.lp",type = 'lp')
+
+# Solve the model
+solve(max_flow)
+
+# Make results and sensitivity table 
+ps <- get.primal.solution(max_flow)
+obj_sa <- get.sensitivity.obj(max_flow)
+rhs_sa <- get.sensitivity.rhs(max_flow)
+
+nv <- length(get.variables(max_flow))
+mc <- length(get.constr.type(max_flow))
+ov <- paste0("Objective Value = ", ps[1])
+
+sa_tab <- rbind(ps[2:(nv + mc + 1)], 
+                round(c(rhs_sa$duals[1:mc], obj_fn), 2),
+                round(c(rhs_sa$dualsfrom[1:mc],obj_sa$objfrom), 2),
+                round(c(rhs_sa$dualstill[1:mc],obj_sa$objtill), 2)) 
+colnames(sa_tab) <- c(rownames(max_flow), colnames(max_flow))
+rownames(sa_tab) <- c("solution", "duals/coef", "Sens From", "Sens Till")      
+
+# Objective value and sensitivity analysis table Transposing for better quality 
+m2<- as.data.frame(sa_tab)
+tm2 <- transpose(m2)
+setnames(tm2, rownames(m2))
+colnames(tm2) <- rownames(m2)
+rownames(tm2) <- colnames(m2)
+ov
+tm3<- as.data.frame(tm2)
+tm3
+#get.variables(max_flow)
+```
+
+##Graph Max Cost Solution
+
+```{r}
+# Include solution in edges dataframe
+edges$Mflow <- get.variables(max_flow)[3:32]
+edges$TotalAid <- edges$Mflow * edges$Capacity
+
+#create size for vertecies
+#V()$Mflow <- get.variables(max_flow)[31:41] #tried playing with size of vertecies but failed
+#nodes$Mflow[1] <- get.variables(max_flow)[1]
+#nodes$Mflow[2] <- get.variables(max_flow)[2]
+
+g1 <- edges %>%
+  # creating igraph: "from" and "to" fields in the first two colums
+  select(From, To, ID, Capacity, Cost, Type, Mflow, TotalAid) %>%
+  # Make into graph object
+  graph_from_data_frame()
+
+#Add route and node attribute
+V(g1)$route <- c("From","From","To","To","To","To","To","To","To","To","To")
+V(g1)$color <- c("gold","green")[1+(V(net)$route=="From")]
+V(g1)$Mflow <- get.variables(max_flow)[31:41] #tried playing with size of vertecies but failed
+V(g1)$Mflow[1] <- get.variables(max_flow)[1]
+V(g1)$Mflow[2] <- get.variables(max_flow)[2]
+
+# Get some colours in to visualise routes
+E(g1)$color[E(g1)$Type == 'Truck'] <- 'saddlebrown'
+E(g1)$color[E(g1)$Type == 'Airplane'] <- 'forestgreen'
+E(g1)$color[E(g1)$Type == 'Ship'] <- 'royalblue'
+E(g1)$color[E(g1)$Mflow == 0] <- 'white'
+
+g1$layout <- matrix(c(-800, -800,  
+                       0,  0,  0, 0,  0, 0, 
+                       800, 800, 800,
+                       225, 125, 
+                       300, 250, 200, 150, 100, 50, 
+                       250, 175, 100), nc = 2)
+
+plot(g1, edge.width = 20*E(g1)$TotalAid/max(E(g1)$TotalAid) , 
+     edge.arrow.size=.3,
+     edge.label = as.integer(E(g1)$TotalAid),
+     vertex.size= 50*V(g1)$Mflow/max(V(g1)$Mflow))
+#get.variables(max_flow)
+E(g1)$TotalAid
+```
+
+#4 - Last Plan Testing Max Flow by relaxing some constraints to congos
+
+```{r}
+#Maximum Flow
+
+# Set up model
+max_flow <- make.lp(0, 41)
+lp.control(max_flow, sense = "max")
+
+## Set objective fn
+obj_fn <- c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1)
+set.objfn(max_flow, obj_fn)
+
+# Set up constraints
+add.constraint(max_flow, c( 1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),            "<=", 1000000)#inflow
+add.constraint(max_flow, c(-1,0,150,240,150,150,240,240,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0), "=",  0 )  #NY
+add.constraint(max_flow, c(0,-1,0,0,0,0,0,0,150,240,150,150,240,240,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),  "=",  0)  #FL
+add.constraint(max_flow, c(0,0,-150,0,0,0,0,0,-150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,1,0,0,0,0,0,0,0,0),    "=",  0)  #Lusaka
+add.constraint(max_flow, c(0,0,0,-240,0,0,0,0,0,-240,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,1,0,0,0,0,0,0,0),"=",  0)  #Libreville
+add.constraint(max_flow, c(0,0,0,0,-150,0,0,0,0,0,-150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,1,0,0,0,0,0,0),   "=",  0)  #Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,-150,0,0,0,0,0,-150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,150,0,0,0,0,0,1,0,0,0,0,0),   "=",  0)   #Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,-240,0,0,0,0,0,-240,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,1,0,0,0,0),"=",  0)  #Luanda
+add.constraint(max_flow, c(0,0,0,0,0,0,0,-240,0,0,0,0,0,-240,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,17.7,0,0,0,0,0,1,0,0,0), "=",  0)   #Dakar
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,-150,-17.7,-150,-150,-17.7,-17.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),"=",  0)  #Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-150,-17.7,-150,-150,-17.7,-17.7,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0),"=",  0)  #Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-150,-17.7,-150,-150,-17.7,-17.7,0,0,0,0,0,0,0,0,1),"=",  0)  #Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1),          "<=", 1000000) #OUtflow
+
+# Air Constraints
+add.constraint(max_flow, c(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #NY-Lusak
+add.constraint(max_flow, c(0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500) #NY-Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500) #NY-Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500) #FL-Lusaka
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 700) #FL-Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 600) #FL-Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 200) #Lusaka-Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 0) #Nairobi-Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #Khartoum-Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 140) #Lusaka-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 400 ) #Nairobi-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 500 ) #Khartoum-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 200  ) #Lusaka-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #Nairobi-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0),          "<=", 40 ) #Khartoum-Ndja
+
+# Truck Contraints
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 250) #Lunda-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0),          "<=", 240) #Lunda-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 300) #Lib-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 160) #Lib-Ndjamena
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),          "<=", 700) #Dakar-Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0),          "<=", 450) #Dakar-Ndjamena
+
+# City REquirements Constraints
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0),          "<=", 150000) #Lusaka
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),          "<=", 100000) #Liber
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0),          "<=", 120000) #Nairobi
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0),          "<=", 90000) #Khartoum
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0),          "<=", 130000) #Lunada
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),          "<=", 50000) #Dakar
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),          "<=", 100000) #Niamey
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0),          "<=", 180000) #Kosongo
+add.constraint(max_flow, c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),          "<=", 80000) #Ndjamena
+
+
+dimnames(max_flow) <- list(c("Inflow","New York", "Jacksonville","Lusaka", "Libreville", "Nairobi",
+                       "Khartoum", "Luanda", "Dakar", "Niamey", "Kosongo", "Ndjamena", "Max Outflow", 
+                       "Ny-Lusaka AirC", "NY-Nairobi AirC", "NY-Khartoum AirC", 
+                       "JAX-Lusaka AirC", "JAX-Nairobi AirC","JAX-Khartoum AirC", 
+                       "Lusaka-Niamey AirC", "Nairobi-Niamey AirC", "Khartoum-Niamey AirC", 
+                       "Lusaka-Kosongo AirC","Nairobi-Kosongo AirC", "Khartoum-Kosongo AirC",
+                       "Lusaka-Ndjamena AirC", "Nairobi-Ndjamena AirC", "Khartoum-Ndjamena AirC",
+                       "Luanda-Kosongo TruckC", "Luanda-Ndjamena TruckC", "Libreville-Kosongo TruckC", 
+                       "Libreville-Ndjamena TruckC", "Dakar-Kosongo TruckC", "Dakar-Ndjamena TruckC", 
+                       "LusakaR", "LibrevilleR", "NairobiR", "KhartoumR", 
+                       "LuandaR", "DakarR", "NiameyR", "KosongoR", "NdjamenaR"),
+                       c("I-NY", "I-JAX", as.vector(edges$ID), "Lusaka-O", "Libreville-O", 
+                         "Nairobi-O", "Khartoum-O", "Luanda-O","Dakar-O", "Niamey-O",
+                         "Kosongo-O", "Ndjamena-O") )
+
+# Write to view the algebraic formulation
+write.lp(max_flow, "5260_S18_minterm_max_flow.lp",type = 'lp')
+
+# Solve the model
+solve(max_flow)
+
+# Make results and sensitivity table 
+ps <- get.primal.solution(max_flow)
+obj_sa <- get.sensitivity.obj(max_flow)
+rhs_sa <- get.sensitivity.rhs(max_flow)
+
+nv <- length(get.variables(max_flow))
+mc <- length(get.constr.type(max_flow))
+ov <- paste0("Objective Value = ", ps[1])
+
+sa_tab <- rbind(ps[2:(nv + mc + 1)], 
+                round(c(rhs_sa$duals[1:mc], obj_fn), 2),
+                round(c(rhs_sa$dualsfrom[1:mc],obj_sa$objfrom), 2),
+                round(c(rhs_sa$dualstill[1:mc],obj_sa$objtill), 2)) 
+colnames(sa_tab) <- c(rownames(max_flow), colnames(max_flow))
+rownames(sa_tab) <- c("solution", "duals/coef", "Sens From", "Sens Till")      
+
+# Objective value and sensitivity analysis table Transposing for better quality 
+m2<- as.data.frame(sa_tab)
+tm2 <- transpose(m2)
+setnames(tm2, rownames(m2))
+colnames(tm2) <- rownames(m2)
+rownames(tm2) <- colnames(m2)
+ov
+tm3<- as.data.frame(tm2)
+tm3
+#get.variables(max_flow)
+
+```
+
+##Graph Max Cost Solution
+
+```{r}
+# Include solution in edges dataframe
+edges$Mflow <- get.variables(max_flow)[3:32]
+edges$TotalAid <- edges$Mflow * edges$Capacity
+
+#create size for vertecies
+nodes$Mflow2 <- get.variables(max_flow)[31:41] #tried playing with size of vertecies but failed
+nodes$Mflow2[1] <- get.variables(max_flow)[1]
+nodes$Mflow2[2] <- get.variables(max_flow)[2]
+
+g1 <- edges %>%
+  # creating igraph: "from" and "to" fields in the first two colums
+  select(From, To, ID, Capacity, Cost, Type, Mflow, TotalAid) %>%
+  # Make into graph object
+  graph_from_data_frame()
+
+#Add route and node attribute
+V(g1)$route <- c("From","From","To","To","To","To","To","To","To","To","To")
+V(g1)$color <- c("gold","green")[1+(V(net)$route=="From")]
+V(g1)$Mflow <- get.variables(max_flow)[31:41] #tried playing with size of vertecies but failed
+V(g1)$Mflow[1] <- get.variables(max_flow)[1]
+V(g1)$Mflow[2] <- get.variables(max_flow)[2]
+
+# Get some colours in to visualise routes
+E(g1)$color[E(g1)$Type == 'Truck'] <- 'saddlebrown'
+E(g1)$color[E(g1)$Type == 'Airplane'] <- 'forestgreen'
+E(g1)$color[E(g1)$Type == 'Ship'] <- 'royalblue'
+E(g1)$color[E(g1)$Mflow == 0] <- 'white'
+
+g1$layout <- matrix(c(-800, -800,  
+                       0,  0,  0, 0,  0, 0, 
+                       800, 800, 800,
+                       225, 125, 
+                       300, 250, 200, 150, 100, 50, 
+                       250, 175, 100), nc = 2)
+
+plot(g1, edge.width = 20*E(g1)$TotalAid/max(E(g1)$TotalAid) , 
+     edge.arrow.size=.3,
+     edge.label = as.integer(E(g1)$TotalAid),
+     vertex.size= 50*V(g1)$Mflow/max(V(g1)$Mflow))
+#get.variables(max_flow)
+E(g1)$TotalAid
+```
+
+#Appendix for additional igraph data structure
+
+##Fuction to run Matrix
+
+```{r}
+
+
+
+createConstraintsMatrix <- function(edges, total_flow) {
+
+  # Edge IDs to be used as names
+  names_edges <- edges$ID
+  # Number of edges
+  numberof_edges <- length(names_edges)
+
+  # Node IDs to be used as names
+  names_nodes <- c(edges$From, edges$To) %>% unique
+  # Number of nodes
+  numberof_nodes <- length(names_nodes)
+
+  # Build constraints matrix
+  constraints <- list(
+    lhs = NA,
+    dir = NA,
+    rhs = NA)
+
+  #Build capacity constraints by flowing through each edge should not be larger than capacity.
+  #add zero except the ones that matchs the edge
+  
+  # Flow through individual edges
+  constraints$lhs <- edges$ID %>%
+    length %>%
+    diag %>%
+    set_colnames(edges$ID) %>%
+    set_rownames(edges$ID)
+  # should be smaller than or equal to
+  constraints$dir <- rep('<=', times = nrow(edges))
+  # than capacity
+  constraints$rhs <- edges$Max
+
+
+  #' Build node flow constraints For each node, find all edges that go to that node
+
+  nodeflow <- matrix(0,
+                     nrow = numberof_nodes,
+                     ncol = numberof_edges,
+                     dimnames = list(names_nodes, names_edges))
+
+  for (i in names_nodes) {
+
+    # input arcs
+    edges_in <- edges %>%
+      filter(To == i) %>%
+      select(ID) %>%
+      unlist
+    # output arcs
+    edges_out <- edges %>%
+      filter(From == i) %>%
+      select(ID) %>%
+      unlist
+
+    # set input coefficients to 1
+    nodeflow[
+      rownames(nodeflow) == i,
+      colnames(nodeflow) %in% edges_in] <- 1
+
+    # set output coefficients to -1
+    nodeflow[
+      rownames(nodeflow) == i,
+      colnames(nodeflow) %in% edges_out] <- -1
+  }
+
+
+  # Source node is minimum ID number
+  # Sink node is  maximum ID number
+  sourcenode_id <- min(edges$From)
+  targetnode_id <- max(edges$To)
+  # Keep node flow values for separate step below
+  nodeflow_source <- nodeflow[rownames(nodeflow) == sourcenode_id,]
+  nodeflow_target <- nodeflow[rownames(nodeflow) == targetnode_id,]
+  # Exclude them from node flow here
+  nodeflow <- nodeflow[!rownames(nodeflow) %in% c(sourcenode_id, targetnode_id),]
+
+  # Add nodeflow to the constraints list
+  constraints$lhs <- rbind(constraints$lhs, nodeflow)
+  constraints$dir <- c(constraints$dir, rep('==', times = nrow(nodeflow)))
+  constraints$rhs <- c(constraints$rhs, rep(0, times = nrow(nodeflow)))
+
+
+  #' Build constraints 
+
+  # Add initialisation to the constraints list
+  constraints$lhs <- rbind(constraints$lhs,
+                           source = nodeflow_source,
+                           target = nodeflow_target)
+  constraints$dir <- c(constraints$dir, rep('==', times = 2))
+  # Flow should be negative for source, and positive for target
+  constraints$rhs <- c(constraints$rhs, total_flow * -1, total_flow)
+
+  return(constraints)
+}
+
+#Create My Matrix
+constraintsMatrix <- createConstraintsMatrix(edges, 1000000)
+#constraintsMatrix
+
+#Set City Requirement 
+constraintsMatrix$rhs[31] <- 500000
+constraintsMatrix$rhs[32] <- 500000
+constraintsMatrix$rhs[33] <- -150000
+constraintsMatrix$rhs[34] <- -100000
+constraintsMatrix$rhs[35] <- -120000
+constraintsMatrix$rhs[36] <- - 90000
+constraintsMatrix$rhs[37] <- -130000
+constraintsMatrix$rhs[38] <- -180000
+constraintsMatrix$rhs[39] <- -80000
+
+
+#Review data for Validity
+CM <- as.data.frame(constraintsMatrix)
+#glimpse(CM)
+#CM 
+write.csv(CM, file = "MyData.csv")
+#constraintsMatrix$lhs
+#constraintsMatrix$dir
+#constraintsMatrix$rhs
+
+#plot.lpExtPtr(min_cost)
+#get.variables(min_cost)
+```
+
+#Using I graph to calculate min and max (didnt work)
+
+```{r}
+#Addmore attributes to the Graph
+
+E(net)$Group <- E(net)$Type 
+#E(net)$Group
+#V(net)$Group <- V(net)$CityType 
+#V(net)$Group
+E(net)$weight = E(net)$Capacity
+#E(net)$weight 
+E(net)$name = E(net)$ID
+#E(net)$name 
+V(net)$weight = V(net)$Requirements
+#V(net)$weight
+E(net)$capacity <- E(net)$Max
+E(net)$cost <- E(net)$Cost
+plot(net, edge.label = E(net)$Max)
+plot(net, edge.label = E(net)$Cost)
+# Testing  Maximum flow
+g_max <- max_flow(net, c("New York, NY", 'Jacksonville, FL'), 
+                   c('Kosongo, D.R. Congo' ,"Ndjamena, Chad",
+                     'Niamey, Niger'))
+g_max$value
+g_max
+gx <- net
+E(gx)$label <- g_max$flow
+plot(gx)
+
+
+min_cut(net, c("New York, NY", 'Jacksonville, FL'), 
+                   c('Kosongo, D.R. Congo' ,"Ndjamena, Chad",
+                     'Niamey, Niger'))
+max_flow(net, c("New York, NY", 'Jacksonville, FL'), 
+                   c('Kosongo, D.R. Congo' ,"Ndjamena, Chad",
+                     'Niamey, Niger'))$value
+summary(net) #find more info
+net[] #for matrix
+degree(net)
+E(net)[]
+V(net)[]
+
+test<- net[]
+test<- as.data.frame(as.matrix(test))
+library(data.table)
+library(reshape2)
+test1<- data.table(test)
+
+test1 <- transpose(test, fill =NA)
+test1 <- melt(test1, fill = 0)
+test1
+
+```

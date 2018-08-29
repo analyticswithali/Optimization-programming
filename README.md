@@ -1,40 +1,25 @@
 # Optimization-programming
+
 This analysis has examples of constrained optimization problems, including linear, network, dynamic, integer, and nonlinear programming, decision trees, queueing theory, and Markov decision processes. 
 
 
+- Network optimization model [PDF file](https://cdn.rawgit.com/analyticswithali/CEO-Compensation/c44ff9de/CEO_Compensation_EDA.html)
+- Integer programming model [html file](https://cdn.rawgit.com/analyticswithali/CEO-Compensation/72a27690/CEO_Compensation_regression_EDA.html)
+- Inventory optimization model [html file](https://cdn.rawgit.com/analyticswithali/CEO-Compensation/c44ff9de/CEO%20Compensation%20Final%20Regression%20Analysis%20Paper.pdf)
+- Network optimization model EDA [html file](https://cdn.rawgit.com/analyticswithali/CEO-Compensation/c44ff9de/CEO_Compensation_EDA.html)
 
-You can use the [editor on GitHub](https://github.com/analyticswithali/Optimization-programming/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+## Steps to recreate Network optimization model
+1. Review the network problem [Raw Data](https://github.com/analyticswithali/CEO-Compensation/blob/master/ECON5100_project_data.csv)
+2. Download the [Raw Data](https://github.com/analyticswithali/CEO-Compensation/blob/master/ECON5100_project_data.csv)
+3. Network optimization model EDA [R file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO_Compensation_EDA.Rmd)
+4. Network optimization model EDA [html file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO%20Compensation%20regression%20EDA.Rmd)
+5. Final Analysis [PDF file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO%20Compensation%20Final%20Regression%20Analysis%20Paper.pdf)
 
-### Markdown
-
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/analyticswithali/Optimization-programming/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+## Steps to recreate integer programmin and inventory optimization model
+1. Review the optimization problem [Raw Data](https://github.com/analyticswithali/CEO-Compensation/blob/master/ECON5100_project_data.csv)
+2. Download the [Raw Data](https://github.com/analyticswithali/CEO-Compensation/blob/master/ECON5100_project_data.csv)
+3. Integer programming model [R file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO_Compensation_EDA.Rmd)
+4. Inventory optimization model [R file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO%20Compensation%20regression%20EDA.Rmd)
+5. Final Analysis Part 1 [html file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO%20Compensation%20Final%20Regression%20Analysis%20Paper.pdf)
+6. Final Analysis Part 2 [html file](https://github.com/analyticswithali/CEO-Compensation/blob/master/CEO%20Compensation%20Final%20Regression%20Analysis%20Paper.pdf)

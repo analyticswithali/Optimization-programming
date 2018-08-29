@@ -1,0 +1,32 @@
+Table 1: Transport characteristics,,,,Table 2: African destinations,,,"Table 3: City transport pairs, transport modes, distances and costs",,,,,,Table 4: Aid requirements,,,Table 5: Air restrictsions (question 4 only),,,,Table 6: Truck restrictions (question 4 only),,
+Type,Capacity,Speed,,Ports,Airfields,,From,To,Type,Distance,Cost,,City,Requirements,,From,To,Max Airplanes,,From,To,Max Trucks
+Airplane,150,400,,"Dakar, Senegal","Khartoum, Sudan",,"New York, NY","Lusaka, Zambia",Airplane,8098,50,,"Dakar, Senegal",50000,,"New York, NY","Lusaka, Zambia",300,,"Luanda, Angola","Kosongo, D.R. Congo",250
+Ship,240,35,,"Libreville, Gabon","Lusaka, Zambia",,"New York, NY","Libreville, Gabon",Ship,6024,30,,"Libreville, Gabon",100000,,"New York, NY","Nairobi, Kenya",500,,"Luanda, Angola","Ndjamena, Chad",240
+Truck,17.7,50,,"Luanda, Angola","Nairobi, Kenya",,"New York, NY","Nairobi, Kenya",Airplane,8050,55,,"Luanda, Angola",130000,,"New York, NY","Khartoum, Sudan",500,,"Libreville, Gabon","Kosongo, D.R. Congo",300
+,,,,,,,"New York, NY","Khartoum, Sudan",Airplane,7041,45,,"Khartoum, Sudan",90000,,"Jacksonville, FL","Lusaka, Zambia",500,,"Libreville, Gabon","Ndjamena, Chad",160
+,,,,,,,"New York, NY","Luanda, Angola",Ship,6526,30,,"Lusaka, Zambia",150000,,"Jacksonville, FL","Nairobi, Kenya",700,,"Dakar, Senegal","Kosongo, D.R. Congo",700
+,,,,,,,"New York, NY","Dakar, Senegal",Ship,4172,32,,"Nairobi, Kenya",120000,,"Jacksonville, FL","Khartoum, Sudan",600,,"Dakar, Senegal","Ndjamena, Chad",450
+,,,,,,,"Jacksonville, FL","Lusaka, Zambia",Airplane,7944,57,,"Niamey, Niger",100000,,"Lusaka, Zambia","Niamey, Niger",200,,,,
+,,,,,,,"Jacksonville, FL","Libreville, Gabon",Ship,6329,48,,"Kosongo, D.R. Congo",180000,,"Nairobi, Kenya","Niamey, Niger",0,,,,
+,,,,,,,"Jacksonville, FL","Nairobi, Kenya",Airplane,7961,61,,"Ndjamena, Chad",80000,,"Khartoum, Sudan","Niamey, Niger",300,,,,
+,,,,,,,"Jacksonville, FL","Khartoum, Sudan",Airplane,7084,49,,,,,"Lusaka, Zambia","Kosongo, D.R. Congo",140,,,,
+,,,,,,,"Jacksonville, FL","Luanda, Angola",Ship,6828,44,,,,,"Nairobi, Kenya","Kosongo, D.R. Congo",40,,,,
+,,,,,,,"Jacksonville, FL","Dakar, Senegal",Ship,3924,56,,,,,"Khartoum, Sudan","Kosongo, D.R. Congo",80,,,,
+,,,,,,,"Lusaka, Zambia","Niamey, Niger",Airplane,4070,24,,,,,"Lusaka, Zambia","Ndjamena, Chad",0,,,,
+,,,,,,,"Libreville, Gabon","Niamey, Niger",Truck,1032,3,,,,,"Nairobi, Kenya","Ndjamena, Chad",300,,,,
+,,,,,,,"Nairobi, Kenya","Niamey, Niger",Airplane,2524,28,,,,,"Khartoum, Sudan","Ndjamena, Chad",40,,,,
+,,,,,,,"Khartoum, Sudan","Niamey, Niger",Airplane,2065,22,,,,,,,,,,,
+,,,,,,,"Luanda, Angola","Niamey, Niger",Truck,2916,3,,,,,,,,,,,
+,,,,,,,"Dakar, Senegal","Niamey, Niger",Truck,1656,5,,,,,,,,,,,
+,,,,,,,"Lusaka, Zambia","Kosongo, D.R. Congo",Airplane,746,22,,,,,,,,,,,
+,,,,,,,"Libreville, Gabon","Kosongo, D.R. Congo",Truck,1842,4,,,,,,,,,,,
+,,,,,,,"Nairobi, Kenya","Kosongo, D.R. Congo",Airplane,1090,25,,,,,,,,,,,
+,,,,,,,"Khartoum, Sudan","Kosongo, D.R. Congo",Airplane,1377,19,,,,,,,,,,,
+,,,,,,,"Luanda, Angola","Kosongo, D.R. Congo",Truck,1389,5,,,,,,,,,,,
+,,,,,,,"Dakar, Senegal","Kosongo, D.R. Congo",Truck,4623,5,,,,,,,,,,,
+,,,,,,,"Lusaka, Zambia","Ndjamena, Chad",Airplane,2110,23,,,,,,,,,,,
+,,,,,,,"Libreville, Gabon","Ndjamena, Chad",Truck,1415,7,,,,,,,,,,,
+,,,,,,,"Nairobi, Kenya","Ndjamena, Chad",Airplane,1768,2,,,,,,,,,,,
+,,,,,,,"Khartoum, Sudan","Ndjamena, Chad",Airplane,1200,4,,,,,,,,,,,
+,,,,,,,"Luanda, Angola","Ndjamena, Chad",Truck,2652,8,,,,,,,,,,,
+,,,,,,,"Dakar, Senegal","Ndjamena, Chad",Truck,2725,9,,,,,,,,,,,
