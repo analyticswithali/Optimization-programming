@@ -1,9 +1,12 @@
 ---
+title: 'Analysis of 3 Proposal: Arties Dream'
+author: 'Afsar Ali'
 output:
-  html_document:
-    toc: true
+  prettydoc::html_pretty:
+    theme: Cayman
+    highlight: github
+    toc: yes
     toc_depth: '4'
-    df_print: paged
 ---
 
 ##### **To:**  Seattle Museum of Modern Art: Board of directors  

@@ -1,9 +1,12 @@
 ---
+title: 'Analysis of the Proposals to reduce average level of in-process inventory'
+author: 'Afsar Ali'
 output:
-  html_document:
-    toc: true
+  prettydoc::html_pretty:
+    theme: Cayman
+    highlight: github
+    toc: yes
     toc_depth: '4'
-    df_print: paged
 ---
 
 ##### **To:**   Seymore Butts
@@ -38,7 +41,7 @@ library(formattable)
 ```
 
 
-### Executive Summary
+## Executive Summary
 
 How can we reduce the average number of poster sheets waiting to complete inspection? I was tasked with analyzing and producing solutions to reduce the backlog by taking into account the cost associated with each task and cost of in-process inventory. According to my findings, we should only use 8 printing press, increase the print time by 15 mins and hire an additional inspector. This will reduce our **Total cost by $50.63 per hour** from current the total cost of $203.14 per hour to $152.51 per hour and optimizes our overall operation. With the task of analyzing the two initial proposals we discussed, I was able to create a third solution that maximizes the poster sheet flow while minimizing our cost. 
 
@@ -100,7 +103,7 @@ rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 9 presses and 1 inspector
 rbind(p4_i[1, 9:10]+p4_p[3,9:10], #using 10 presses and 1 inspector
       p4_i[2, 9:10]+p4_p[3,9:10]) #using 10 presses and 2 inspector
 ```
-#### Current Status Report 
+### Current Status Report 
 
 Table 1 breaks down our status quo. Our current **total cost is $203.14 per hour** (highlighted green). There is an average of 7 to 8 posters in Printing Press and 7 posters in the Inspection Station, which we can call work-in-process inventory (WIP). The inventory waiting in the queue (WIQ) for service is an average of 0 to 1 posters at Printing Press and 6 posters at the Inspection Station. The wait time of the inventory in the queue for service is in average 4 minutes 25 seconds at Printing Press and 52 minutes 30 seconds in the Inspection Station. We are already aware that there is a backlog at the Inspection Station. Excluding the Cost of servers, the result shows that the main impact on in-process inventory cost comes from the Inspection Station $49 per hour for inventory waiting to be serviced (highlighted red).
 
@@ -189,7 +192,7 @@ rbind(p4_i[1, 9:10]+p4_p[1,9:10], #using 9 presses and 1 inspector
 rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 10 presses and 1 inspector
       p4_i[2, 9:10]+p4_p[2,9:10]) #using 10 presses and 2 inspector
 ```
-#### Proposed: Decreasing print time 
+### Proposed: Decreasing print time 
 
 If we were to take slightly longer time to make the prints, so that the inspector can keep up with the output and reduce the cost of the power for running each press from $7.00 to $6.50 per hour, the **total cost would increase by $23.24 per hour**, from current total cost of $203.14 per hour to $226.38 per hour (highlighted green in table 2). This increase is due to the cost of in-process inventory, by decreasing the print time the average WIP inventory goes from 7-8 posters to about 11 posters in printing press. Although the cost of printing press gets reduced by $5, the result shows that cost of in-process inventory WIQ increases from $4.14 per hours to $21.18 per hour (highlighted red in table 2). 
 
@@ -282,7 +285,7 @@ rbind(p4_i[1, 9:10]+p4_p[1,9:10], #using 9 presses and 1 inspector
 rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 10 presses and 1 inspector
       p4_i[2, 9:10]+p4_p[2,9:10]) #using 10 presses and 2 inspector
 ```
-#### Proposed: Increasing print time 
+### Proposed: Increasing print time 
 
 By contrast, if we were increasing the print time, it would increase the cost of the power for running each press by $7.50 per hour but the total cost would **decrease by $9.63 per hour**, from current total cost of $203.14 per hour to $193.51.38 per hour (highlighted green in table 3). This decrease is due to the decrease in cost of in-process inventory, by increasing the print time the average WIP inventory goes from 7-8 posters to about 5-6 posters in printing press. Although the cost of printing press increases by $5, the result shows that the cost of in-process inventory WIP decreases from $60.14 per hours to $45.51 per hour  (highlighted red in table 3). This proposed solution should be considered in our final decision.
 
@@ -375,7 +378,7 @@ rbind(p4_i[1, 9:10]+p4_p[2,9:10], #using 9 presses and 1 inspector
 rbind(p4_i[1, 9:10]+p4_p[3,9:10], #using 10 presses and 1 inspector
       p4_i[2, 9:10]+p4_p[3,9:10]) #using 10 presses and 2 inspector
 ```
-#### Proposed: Experienced inspector  
+### Proposed: Experienced inspector  
 
 If we were to substitute a more experienced inspector, the **total cost would decrease by $18.36 per hour**, from current total cost of $203.14 per hour to $184.78 per hour (highlighted green in table 4). Similar to the proposal to increase print time, increasing the process in the inspections station decreases the cost of in-process inventory. By increasing the inspection speed the average WIP inventory goes from 7 posters to about 4-5 posters in the inspections station. Although the cost of inspection increases by $2, the result shows that cost of in-process inventory WIP decreases from $56 per hour to $35.64 per hour (highlighted red in table 4). The results from these proposals demonstrates that we can minimize our cost by optimizing the in-process inventory in both printing press and inspection station.
 
@@ -470,7 +473,7 @@ rbind(p4_i[1, 9:10]+p4_p[3,9:10], #using 8 presses and 1 inspector
 rbind(p4_i[1, 9:10]+p4_p[5,9:10], #using 10 presses and 1 inspector
       p4_i[2, 9:10]+p4_p[5,9:10]) #using 10 presses and 2 inspector
 ```
-### Recommended Proposal: 2 Inspector, 8 Presses at increased rate
+## Recommended Proposal: 2 Inspector, 8 Presses at increased rate
 
 The recommended proposal is a combination of both of the initial proposal. In Table 5 we can see that by using only 8 printing press, increasing the print time by 15 mins and hiring an additional inspector, we can reduce the **Total cost by $50.63 per hour** from current total cost of $203.14 per hour to $152.51 per hour (highlighted green). This is the optimal solution, that reduces our backlog significantly. The average number of posters WIP decreases from 7 posters to 1 poster and the wait time decreases from 60 minutes to 9 minutes and 16 seconds in the Inspection Station. This also results in significant cost reduction of the in-process inventory from $116.14 per hours to $58.51 (highlighted red in table 5). 
 
@@ -507,6 +510,5 @@ now4 %>%
   column_spec(7, bold = T) %>%
   add_header_above(c(" ", "Current" = 3, "Recommended Proposal" = 3))
 ```  
-
-### Relevant Final Thoughts
+## Relevant Final Thoughts
 Carrying the in-process inventory is very costly and reducing the time it's in queue WIQ should be prioritized. The recommended proposal to only use 8 printing press, increasing the print time by 15 mins and hiring an additional inspector, reduces our inventory that's waiting in queue by 87% this results in 25% decrease in our overall cost. We can also have 2 printing press ready for operation if there are any maintenance issue with the other 8 printing press. 

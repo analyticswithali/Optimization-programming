@@ -1,10 +1,11 @@
 ---
 title: "Network optimization Project"
 author: "Afsar Ali"
-date: '`r format(Sys.time(), "%B %d, %Y")`'
 output:
-  html_document: 
-    toc: true
+  prettydoc::html_pretty:
+    theme: Cayman
+    highlight: github
+    toc: yes
     toc_depth: '4'
 ---
 
