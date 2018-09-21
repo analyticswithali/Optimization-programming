@@ -21,5 +21,5 @@ This analysis has examples of constrained optimization problems, including linea
 2. Download the [Raw Data](https://github.com/analyticswithali/Optimization-programming/blob/master/5260_S18_Arties_Dream.csv)
 3. Integer programming model [R file](https://github.com/analyticswithali/Optimization-programming/blob/master/Integer%20programming%20model.Rmd)
 4. Inventory optimization model [R file](https://rawgit.com/analyticswithali/Optimization-programming/master/Inventory_optimization_model.html)
-5. Final Analysis Part 1 [html file](https://cdn.rawgit.com/analyticswithali/Optimization-programming/7e2a2894/Integer_programming_model.html)
-6. Final Analysis Part 2 [html file](https://cdn.rawgit.com/analyticswithali/Optimization-programming/014b827e/Inventory%20optimization%20model.html)
+5. Final Analysis Part 1 [html file](https://rawgit.com/analyticswithali/Optimization-programming/master/Integer_programming_model.html)
+6. Final Analysis Part 2 [html file](https://rawgit.com/analyticswithali/Optimization-programming/master/Inventory_optimization_model.html)
